@@ -6,7 +6,7 @@ const CFG = window.APP_CONFIG || {};
 const app = document.getElementById('app');
 const NOT_CONFIGURED = !CFG.key || CFG.key.includes('ΒΑΛΤΕ');
 const sb = NOT_CONFIGURED ? null : window.supabase.createClient(CFG.url, CFG.key);
-const st = { user: null, memberships: [], cur: null, isAdmin: false, charts: [], timers: [] };
+const st = { user: null, memberships: [], cur: null, isAdmin: false, charts: [], timers: [], cleanup: [] };
 
 // =====================================================================
 // Βοηθητικά
@@ -49,7 +49,34 @@ function friendly(m) {
   if (/duplicate key/i.test(m)) return 'Υπάρχει ήδη εγγραφή με αυτά τα στοιχεία';
   return m;
 }
-function clearTimers() { st.timers.forEach(t => clearInterval(t)); st.timers = []; $('.rest-bar')?.remove(); }
+function clearTimers() {
+  st.timers.forEach(t => clearInterval(t)); st.timers = []; $('.rest-bar')?.remove();
+  (st.cleanup || []).forEach(f => { try { f(); } catch {} }); st.cleanup = [];
+}
+const money = v => (+v || 0).toLocaleString('el-GR', { style: 'currency', currency: 'EUR' });
+const SUB = { active: ['b-ok', 'Ενεργή'], expiring: ['b-warn', 'Λήγει σύντομα'], expired: ['b-bad', 'Ληγμένη'],
+              none: ['b-muted', 'Χωρίς συνδρομή'], frozen: ['b-info', 'Σε πάγωμα'] };
+const METHOD = { cash: 'Μετρητά', card: 'Κάρτα', iris: 'IRIS', bank: 'Κατάθεση', other: 'Άλλο' };
+function subLine(s) {
+  if (!s || s.status === 'none') return 'Χωρίς συνδρομή';
+  const parts = [s.plan_name || s.plan];
+  if (s.visits_left != null) parts.push(`${s.visits_left} επισκέψεις`);
+  if (s.end_date) parts.push(`έως ${fmtDate(s.end_date)}`);
+  return parts.filter(Boolean).join(' · ');
+}
+function qrSvg(text, size = 220) {
+  if (!window.qrcode) return '<p class="muted">Δεν φορτώθηκε η βιβλιοθήκη QR</p>';
+  const qr = qrcode(0, 'M'); qr.addData(text); qr.make();
+  return qr.createSvgTag({ cellSize: Math.max(2, Math.floor(size / (qr.getModuleCount() + 8))), margin: 4, scalable: true })
+    .replace('<svg ', `<svg style="width:${size}px;height:${size}px;max-width:100%" `);
+}
+const nfcSupported = () => 'NDEFReader' in window;
+async function readNfc(onSerial) {
+  const r = new NDEFReader(), ctrl = new AbortController();
+  await r.scan({ signal: ctrl.signal });
+  r.onreading = e => onSerial((e.serialNumber || '').replace(/:/g, '').toUpperCase());
+  return () => ctrl.abort();
+}
 function destroyCharts() { st.charts.forEach(c => c.destroy()); st.charts = []; }
 
 // Εικονίδια (SVG γραμμής)
@@ -77,7 +104,13 @@ const IC = {
   alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/>',
   card: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
   book: '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15zM20 17v5H6.5A2.5 2.5 0 0 1 4 19.5"/>',
-  timer: '<path d="M10 2h4M12 14l3-3"/><circle cx="12" cy="14" r="8"/>'
+  timer: '<path d="M10 2h4M12 14l3-3"/><circle cx="12" cy="14" r="8"/>',
+  wallet: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+  scan: '<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/>',
+  qr: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h3v-3"/>',
+  nfc: '<path d="M6 8.32a7.43 7.43 0 0 1 0 7.36M9.46 6.21a11.76 11.76 0 0 1 0 11.58M12.91 4.1a15.91 15.91 0 0 1 .01 15.8M16.37 2a20.16 20.16 0 0 1 0 20"/>',
+  flip: '<path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/>',
+  euro: '<path d="M4 10h12M4 14h9M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12c0 4.4 3.5 8 7.8 8 2 0 3.8-.8 5.2-2"/>'
 };
 const icon = (n, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
 
@@ -225,11 +258,14 @@ function renderPending() {
 // =====================================================================
 function tabsFor(m) {
   const t = [], active = m && m.gym_status === 'active';
-  if (isStaff(m)) t.push(['athletes', 'Αθλητές', 'users'], ['attendance', 'Παρουσίες', 'checkSq'],
-                         ['programs', 'Προγράμματα', 'clip'], ['exercises', 'Ασκήσεις', 'dumbbell'], ['members', 'Μέλη', 'card']);
+  if (isStaff(m)) {
+    t.push(['athletes', 'Αθλητές', 'users'], ['checkin', 'Check-in', 'scan']);
+    if (m.is_owner) t.push(['subs', 'Συνδρομές', 'wallet']);
+    t.push(['attendance', 'Παρουσίες', 'checkSq'], ['programs', 'Προγράμματα', 'clip'], ['exercises', 'Ασκήσεις', 'dumbbell'], ['members', 'Μέλη', 'card']);
+  }
   if (m && m.is_athlete && active) {
-    if (isStaff(m)) t.push(['today', 'Η προπόνησή μου', 'play']);
-    else t.push(['today', 'Προπόνηση', 'play'], ['history', 'Ιστορικό', 'clock'], ['progress', 'Πρόοδος', 'trend']);
+    if (isStaff(m)) t.push(['today', 'Η προπόνησή μου', 'play'], ['card', 'Η κάρτα μου', 'qr']);
+    else t.push(['today', 'Προπόνηση', 'play'], ['history', 'Ιστορικό', 'clock'], ['progress', 'Πρόοδος', 'trend'], ['card', 'Κάρτα', 'qr']);
   }
   if (m && m.is_owner && active) t.push(['settings', 'Ρυθμίσεις', 'cog']);
   if (st.isAdmin) t.push(['admin', 'Διαχείριση', 'shield']);
@@ -263,7 +299,7 @@ function shell() {
 const routes = {};
 const PARENT = { athlete: 'athletes', program: 'programs', log: 'athletes' };
 async function route() {
-  destroyCharts(); clearTimers();
+  destroyCharts(); clearTimers(); $$('.sheet-bg').forEach(x => x.remove());
   const tabs = tabsFor(st.cur);
   let [name, arg] = location.hash.replace(/^#\/?/, '').split('/');
   const staffOnly = PARENT[name] && isStaff(st.cur);
@@ -309,12 +345,13 @@ function groupBy(arr, fn) { const m = new Map(); arr.forEach(x => { const k = fn
 // =====================================================================
 routes.athletes = async view => {
   const g = st.cur.gym_id;
-  const [rows, flags, week] = await Promise.all([
+  const [rows, flags, week, subs] = await Promise.all([
     q(sb.from('v_athlete_status').select('*').eq('gym_id', g).order('full_name')),
     q(sb.rpc('athlete_flags', { p_gym: g })),
-    q(sb.from('workout_sessions').select('id').eq('gym_id', g).gte('performed_on', addDays(todayISO(), -6)))
+    q(sb.from('workout_sessions').select('id').eq('gym_id', g).gte('performed_on', addDays(todayISO(), -6))),
+    q(sb.rpc('sub_status', { p_gym: g }))
   ]);
-  const F = Object.fromEntries(flags.map(f => [f.athlete_id, f]));
+  const F = Object.fromEntries(flags.map(f => [f.athlete_id, f])), SS = Object.fromEntries(subs.map(x => [x.member_id, x]));
   rows.forEach(r => {
     const f = F[r.athlete_id] || {};
     r.attention = (r.days_absent == null || r.days_absent > 10) || f.n_stall > 0 || f.n_decrease > 0;
@@ -343,6 +380,9 @@ routes.athletes = async view => {
       if (r.f.n_stall) tags.push(`<span class="badge b-warn">${icon('alert', 'sm')}Στασιμότητα</span>`);
       if (r.f.n_decrease) tags.push(`<span class="badge b-bad">Δυσκολεύεται</span>`);
       if (r.f.n_increase) tags.push(`<span class="badge b-ok">${icon('trend', 'sm')}Έτοιμος για αύξηση</span>`);
+      const sb0 = SS[r.athlete_id];
+      if (sb0 && sb0.status !== 'active') tags.push(`<span class="badge ${SUB[sb0.status][0]}">${icon('wallet', 'sm')}${SUB[sb0.status][1]}</span>`);
+      if (sb0 && sb0.has_debt && st.cur.is_owner) tags.push(`<span class="badge b-bad">Οφειλή</span>`);
       return `<a class="card tap" href="#/athlete/${r.athlete_id}" style="text-decoration:none;color:inherit">
         <div class="list-item">${avatar(r.full_name)}<div class="grow"><div class="row between nowrap"><b class="ellipsis">${esc(r.full_name)}</b>
           <span class="badge ${cls}">${relDays(d)}</span></div>
@@ -613,15 +653,15 @@ routes.exercises = async view => {
 // =====================================================================
 routes.attendance = async view => {
   let day = todayISO(), search = '';
-  const athletes = await q(sb.from('gym_members').select('id, full_name, rfid_tag').eq('gym_id', st.cur.gym_id)
-    .eq('is_athlete', true).eq('status', 'active').order('full_name'));
+  const [athletes, subs] = await Promise.all([q(sb.from('gym_members').select('id, full_name, rfid_tag').eq('gym_id', st.cur.gym_id)
+    .eq('is_athlete', true).eq('status', 'active').order('full_name')), q(sb.rpc('sub_status', { p_gym: st.cur.gym_id }))]);
+  const SS = Object.fromEntries(subs.map(x => [x.member_id, x]));
   view.innerHTML = `
-    <div class="head-row"><h1>Παρουσίες</h1><button class="btn secondary small" id="rfidBtn">${icon('card', 'sm')}Κάρτα</button></div>
+    <div class="head-row"><h1>Παρουσίες</h1><a class="btn small" href="#/checkin">${icon('scan', 'sm')}Check-in</a></div>
     <div class="card row between nowrap" style="padding:8px">
       <button class="icon-btn" id="prev" aria-label="Προηγούμενη">${icon('left')}</button>
       <div class="center grow"><div id="dayName" class="small muted"></div>${dateField('day', day)}</div>
       <button class="icon-btn" id="next" aria-label="Επόμενη">${icon('right')}</button></div>
-    <div id="rfidBox"></div>
     <div class="row between nowrap"><h2 id="cnt" style="margin:8px 0"></h2><span class="muted small">Πατήστε για παρών/απών</span></div>
     <div class="search">${icon('search', 'sm')}<input id="q" placeholder="Αναζήτηση"></div>
     <div class="grid cols-4" id="list"></div>`;
@@ -639,7 +679,8 @@ routes.attendance = async view => {
         ${r ? `<span style="position:absolute;top:8px;right:8px;color:var(--ok)">${icon('check', 'sm')}</span>` : ''}
         <div style="display:flex;justify-content:center">${avatar(a.full_name)}</div><b class="small" style="display:block;margin-top:6px">${esc(a.full_name)}</b>
         <div class="tiny muted">${r ? new Date(r.checked_in_at).toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' }) +
-          (r.method !== 'manual' ? ' · ' + ({ rfid: 'κάρτα', workout: 'προπόνηση', qr: 'QR' }[r.method] || '') : '') : 'απών'}</div></button>`; }).join('');
+          (r.method !== 'manual' ? ' · ' + ({ rfid: 'κάρτα', workout: 'προπόνηση', qr: 'QR' }[r.method] || '') : '') : 'απών'}</div>
+        ${SS[a.id] && SS[a.id].status !== 'active' ? `<span class="badge ${SUB[SS[a.id].status][0]}" style="margin-top:4px">${SUB[SS[a.id].status][1]}</span>` : ''}</button>`; }).join('');
     $$('[data-m]').forEach(b => b.onclick = async () => {
       if (present.has(b.dataset.m)) await q(sb.from('attendance').delete().eq('member_id', b.dataset.m).gte('checked_in_at', from.toISOString()).lt('checked_in_at', to.toISOString()));
       else await q(sb.from('attendance').insert({ gym_id: st.cur.gym_id, member_id: b.dataset.m,
@@ -651,16 +692,6 @@ routes.attendance = async view => {
   $('#prev').onclick = () => { day = addDays(day, -1); load(); };
   $('#next').onclick = () => { if (day < todayISO()) { day = addDays(day, 1); load(); } };
   $('#q').oninput = e => { search = e.target.value.toLowerCase(); load(); };
-  $('#rfidBtn').onclick = () => {
-    const box = $('#rfidBox');
-    if (box.innerHTML) { box.innerHTML = ''; return; }
-    box.innerHTML = `<div class="card"><label>Check-in με κάρτα (σήμερα)</label><input id="rfid" placeholder="Περάστε την κάρτα στον αναγνώστη…" autocomplete="off">
-      <p class="tiny muted" style="margin:6px 0 0">Ο USB αναγνώστης λειτουργεί σαν πληκτρολόγιο. Οι κάρτες ορίζονται στα Μέλη.</p></div>`;
-    const inp = $('#rfid'); inp.focus();
-    inp.onkeydown = async e => { if (e.key !== 'Enter' || !inp.value.trim()) return;
-      const tag = inp.value.trim(); inp.value = '';
-      try { toast('✓ ' + await q(sb.rpc('rfid_checkin', { p_gym: st.cur.gym_id, p_tag: tag }))); if (day === todayISO()) load(); } catch {} };
-  };
   await load();
 };
 
@@ -677,13 +708,26 @@ async function memberSheet(m, after) {
       <div class="field"><label>Στόχος</label><input name="goal" value="${esc(m.goal || '')}"></div>
       <div class="field"><label>Προπονητής</label><select name="coach_id"><option value="">—</option>${coaches.map(c =>
         `<option value="${c.id}" ${c.id === m.coach_id ? 'selected' : ''}>${esc(c.full_name)}</option>`).join('')}</select></div>
-      <div class="field"><label>Κάρτα RFID</label><input name="rfid_tag" value="${esc(m.rfid_tag || '')}" placeholder="—"></div></div>
+      <div class="field"><label>Κάρτα NFC / RFID</label><div class="row nowrap"><input name="rfid_tag" value="${esc(m.rfid_tag || '')}" placeholder="—" class="grow">
+        <button type="button" class="btn secondary small" id="readCard" title="Ανάγνωση κάρτας">${icon('nfc', 'sm')}</button></div></div></div>
     <div class="row" style="margin-bottom:14px"><label class="check"><input type="checkbox" name="is_athlete" ${m.is_athlete ? 'checked' : ''}>Αθλητής</label>
       ${owner ? `<label class="check"><input type="checkbox" name="is_coach" ${m.is_coach ? 'checked' : ''}>Προπονητής</label>` : ''}
       ${!isNew ? `<label class="check"><input type="checkbox" name="active" ${m.status === 'active' ? 'checked' : ''} ${m.user_id === st.user.id ? 'disabled' : ''}>Ενεργό</label>` : ''}</div>
     ${isNew ? '<p class="small muted">Το μέλος φτιάχνει λογαριασμό με το ίδιο email και συνδέεται αυτόματα.</p>' :
-      `<p class="small">${m.user_id ? '<span class="badge b-ok">Έχει λογαριασμό</span>' : '<span class="badge b-muted">Δεν έχει φτιάξει λογαριασμό ακόμα</span>'}</p>`}
+      `<div class="row between" style="margin-bottom:12px">${m.user_id ? '<span class="badge b-ok">Έχει λογαριασμό</span>' : '<span class="badge b-muted">Δεν έχει φτιάξει λογαριασμό ακόμα</span>'}
+        ${m.checkin_code ? `<button type="button" class="btn ghost small" id="showQr">${icon('qr', 'sm')}QR check-in</button>` : ''}</div>`}
     <button class="btn block">${isNew ? 'Προσθήκη' : 'Αποθήκευση'}</button></form>`, (el, close) => {
+    $('#readCard', el).onclick = async () => {
+      const inp = $('[name=rfid_tag]', el);
+      if (nfcSupported()) {
+        try { toast('Ακουμπήστε την κάρτα στο πίσω μέρος της συσκευής');
+          const stop = await readNfc(serial => { inp.value = serial; toast('Διαβάστηκε: ' + serial); stop(); }); } catch (e) { toast('NFC: ' + e.message, true); }
+      } else { inp.value = ''; inp.focus(); toast('Περάστε την κάρτα στον USB αναγνώστη'); }
+    };
+    const sq = $('#showQr', el);
+    if (sq) sq.onclick = () => sheet('QR check-in · ' + m.full_name, `<div class="center">${qrSvg('OGYM:' + m.checkin_code, 260)}
+      <p class="muted small">Για αθλητές χωρίς κινητό: εκτυπώστε το και δείξτε το στην κάμερα check-in.</p>
+      <button class="btn secondary" onclick="window.print()">Εκτύπωση</button></div>`);
     $('#mf', el).onsubmit = async e => {
       e.preventDefault(); const f = e.target;
       const row = { full_name: f.full_name.value.trim(), phone: f.phone.value || null, goal: f.goal.value || null,
@@ -745,12 +789,18 @@ routes.settings = async view => {
       <div class="field"><label>Κύριο χρώμα</label><input name="primary_color" type="color" value="${esc(g.primary_color)}"></div>
       <div class="field"><label>Σκούρο χρώμα</label><input name="secondary_color" type="color" value="${esc(g.secondary_color)}"></div></div>
       <div class="field"><label>Λογότυπο (σύνδεσμος εικόνας)</label><input name="logo_url" value="${esc(g.logo_url || '')}" placeholder="https://…"></div>
+      <h3 style="margin-top:8px">Συνδρομές</h3><div class="form-grid" style="margin-top:8px">
+        <div class="field"><label>Ληγμένη συνδρομή ή οφειλή</label><select name="expired_policy">
+          <option value="warn" ${g.expired_policy !== 'block' ? 'selected' : ''}>Μόνο σήμανση</option>
+          <option value="block" ${g.expired_policy === 'block' ? 'selected' : ''}>Ο αθλητής δεν καταγράφει προπόνηση</option></select></div>
+        <div class="field"><label>Ειδοποίηση «λήγει» πριν από (ημέρες)</label><input name="expiring_days" type="number" min="1" value="${g.expiring_days ?? 7}"></div></div>
       <button class="btn block">Αποθήκευση</button></form>
     <form class="card" id="pf"><h3>Κανόνες προόδου</h3><p class="muted small">Από αυτούς βγαίνουν οι προτάσεις κιλών για όλους τους αθλητές.</p>
       <div class="form-grid">${PROG_FIELDS.map(([k, l]) => `<div class="field"><label>${l}</label><input name="${k}" type="number" step="0.5" value="${fmtNum(ps[k])}"></div>`).join('')}</div>
       <button class="btn block">Αποθήκευση</button></form>`;
   $('#gf').onsubmit = async e => { e.preventDefault(); const f = e.target, upd = {};
     ['name', 'city', 'phone', 'primary_color', 'secondary_color', 'logo_url'].forEach(k => upd[k] = f[k].value || null);
+    upd.expired_policy = f.expired_policy.value; upd.expiring_days = num(f.expiring_days.value) || 7;
     await q(sb.from('gyms').update(upd).eq('id', g.id)); toast('Αποθηκεύτηκε'); await loadMe(); shell(); route(); };
   $('#pf').onsubmit = async e => { e.preventDefault(); const f = e.target, upd = {};
     PROG_FIELDS.forEach(([k]) => upd[k] = num(f[k].value)); await q(sb.from('progression_settings').update(upd).eq('gym_id', g.id)); toast('Αποθηκεύτηκε'); };
@@ -977,6 +1027,383 @@ routes.progress = async view => {
     else c.innerHTML = suggList(await q(sb.rpc('suggest_progression', { p_athlete: st.cur.member_id }))); };
   $$('#seg button').forEach(b => b.onclick = () => { $$('#seg button').forEach(x => x.classList.toggle('active', x === b)); draw(b.dataset.t); });
   draw('p');
+};
+
+// =====================================================================
+// Check-in: QR με κάμερα, κάρτα NFC (κινητό/tablet Android), USB RFID, χειροκίνητα
+// =====================================================================
+routes.checkin = async view => {
+  const g = st.cur.gym_id;
+  const [members, today] = await Promise.all([
+    q(sb.from('gym_members').select('id, full_name, checkin_code, is_athlete').eq('gym_id', g).eq('status', 'active').order('full_name')),
+    q(sb.from('attendance').select('member_id, checked_in_at, method').eq('gym_id', g).gte('checked_in_at', new Date(todayISO() + 'T00:00:00').toISOString()))
+  ]);
+  const names = Object.fromEntries(members.map(m => [m.id, m.full_name]));
+  let facing = store.get('cam_facing') || 'user', lastCode = '', lastAt = 0, busy = false, resetT = null;
+  view.innerHTML = `
+    <div class="head-row"><h1>Check-in</h1><a class="btn secondary small" href="#/attendance">${icon('checkSq', 'sm')}Παρουσίες</a></div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+      <div class="card" style="padding:10px">
+        <div style="position:relative;border-radius:12px;overflow:hidden;background:#111;aspect-ratio:4/3">
+          <video id="vid" playsinline muted style="width:100%;height:100%;object-fit:cover;${facing === 'user' ? 'transform:scaleX(-1)' : ''}"></video>
+          <div style="position:absolute;inset:18%;border:3px solid rgba(255,255,255,.85);border-radius:16px;pointer-events:none"></div>
+          <div id="camMsg" style="position:absolute;inset:0;display:grid;place-items:center;color:#fff;text-align:center;padding:16px">
+            <div>${icon('qr')}<p>Πατήστε «Κάμερα» για σάρωση QR</p></div></div>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn grow" id="camBtn">${icon('camera', 'sm')}Κάμερα</button>
+          <button class="btn secondary" id="flipBtn" title="Αλλαγή κάμερας">${icon('flip', 'sm')}</button>
+          ${nfcSupported() ? `<button class="btn secondary grow" id="nfcBtn">${icon('nfc', 'sm')}NFC</button>` : ''}
+        </div>
+        <p class="tiny muted" style="margin:8px 0 0">Ο USB αναγνώστης καρτών δουλεύει πάντα σε αυτή την οθόνη (λειτουργεί σαν πληκτρολόγιο).
+          ${nfcSupported() ? '' : 'Το NFC υποστηρίζεται μόνο σε Chrome για Android.'}</p>
+      </div>
+      <div>
+        <div class="card center" id="result" style="min-height:220px;display:grid;place-items:center"><div class="muted">
+          ${icon('scan')}<p>Δείξτε το QR της κάρτας σας<br>ή περάστε την κάρτα</p></div></div>
+        <div class="card"><b>Χειροκίνητα</b><div class="search" style="margin:8px 0 0">${icon('search', 'sm')}<input id="mq" placeholder="Όνομα αθλητή" autocomplete="off"></div>
+          <div id="ml"></div></div>
+      </div>
+    </div>
+    <h2 id="tcnt"></h2><div class="card" style="padding:4px 14px" id="tlist"></div>`;
+
+  const drawToday = () => {
+    const xs = today.slice().sort((a, b) => b.checked_in_at.localeCompare(a.checked_in_at));
+    $('#tcnt').textContent = `Σήμερα: ${new Set(xs.map(x => x.member_id)).size} check-in`;
+    $('#tlist').innerHTML = xs.slice(0, 30).map((x, i) => `<div class="row nowrap" style="padding:8px 0;${i ? 'border-top:1px solid var(--line)' : ''}">
+      ${avatar(names[x.member_id] || '?')}<b class="grow">${esc(names[x.member_id] || '')}</b>
+      <span class="small muted">${new Date(x.checked_in_at).toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' })} · ${({ rfid: 'κάρτα', qr: 'QR', manual: 'χειροκ.', workout: 'προπόνηση' })[x.method] || ''}</span></div>`).join('')
+      || '<div class="empty">Κανένα check-in ακόμα σήμερα</div>';
+  };
+  const beep = ok => { try { const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), gn = a.createGain();
+    o.frequency.value = ok ? 880 : 300; gn.gain.value = .15; o.connect(gn); gn.connect(a.destination); o.start(); o.stop(a.currentTime + (ok ? .15 : .4)); } catch {} };
+
+  async function doCheckin(code, method) {
+    if (busy || !code) return;
+    if (code === lastCode && Date.now() - lastAt < 6000) return;
+    busy = true; lastCode = code; lastAt = Date.now();
+    try {
+      const r = await q(sb.rpc('checkin', { p_gym: g, p_code: code, p_method: method }));
+      const [cls, lbl] = SUB[r.status] || SUB.none, bad = ['expired', 'none'].includes(r.status) && r.is_athlete;
+      beep(!bad); if (navigator.vibrate) navigator.vibrate(bad ? [200, 100, 200] : 60);
+      if (!r.already) { today.push({ member_id: r.member_id, checked_in_at: new Date().toISOString(), method }); drawToday(); }
+      $('#result').style.borderColor = bad ? 'var(--bad)' : 'var(--ok)';
+      $('#result').innerHTML = `<div><div style="display:flex;justify-content:center;margin-bottom:10px">${avatar(r.name, 'lg')}</div>
+        <h1 style="margin:0">${esc(r.name)}</h1>
+        <p style="font-size:18px;margin:6px 0">${r.already ? 'Έχετε ήδη κάνει check-in σήμερα' : bad ? 'Παρακαλούμε περάστε από τη γραμματεία' : 'Καλή προπόνηση! 💪'}</p>
+        ${r.is_athlete ? `<span class="badge ${cls}" style="font-size:14px;padding:6px 12px">${lbl}</span>
+          <p class="small muted" style="margin:8px 0 0">${esc(subLine(r))}</p>` : ''}</div>`;
+      const rb = $('#result').getBoundingClientRect(); if (rb.top < 60 || rb.bottom > innerHeight) $('#result').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      clearTimeout(resetT);
+      resetT = setTimeout(() => { const el = $('#result'); if (!el) return; el.style.borderColor = '';
+        el.innerHTML = `<div class="muted">${icon('scan')}<p>Δείξτε το QR της κάρτας σας<br>ή περάστε την κάρτα</p></div>`; }, 7000);
+    } catch { beep(false); } finally { busy = false; }
+  }
+
+  // --- Κάμερα / QR ---
+  const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const detector = ('BarcodeDetector' in window) ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
+  let scanT = null;
+  async function startCam() {
+    stopCam();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1280 } }, audio: false });
+      st.stream = stream; const v = $('#vid'); v.srcObject = stream; await v.play();
+      v.style.transform = facing === 'user' ? 'scaleX(-1)' : '';
+      $('#camMsg').style.display = 'none'; $('#camBtn').innerHTML = `${icon('x', 'sm')}Διακοπή`;
+      scanT = setInterval(scan, 300); st.timers.push(scanT);
+    } catch (e) {
+      $('#camMsg').style.display = 'grid';
+      $('#camMsg').innerHTML = `<div><p>Δεν ήταν δυνατή η πρόσβαση στην κάμερα.</p><p class="small">${esc(e.message)}</p></div>`;
+    }
+  }
+  function stopCam() {
+    if (scanT) clearInterval(scanT); scanT = null;
+    if (st.stream) { st.stream.getTracks().forEach(t => t.stop()); st.stream = null; }
+    const b = $('#camBtn'); if (b) b.innerHTML = `${icon('camera', 'sm')}Κάμερα`;
+    const m = $('#camMsg'); if (m) m.style.display = 'grid';
+  }
+  async function scan() {
+    const v = $('#vid'); if (!v || !v.videoWidth || busy) return;
+    try {
+      let txt = null;
+      if (detector) { const r = await detector.detect(v); txt = r[0]?.rawValue || null; }
+      else if (window.jsQR) {
+        const w = 480, h = Math.round(v.videoHeight * w / v.videoWidth); canvas.width = w; canvas.height = h;
+        ctx.drawImage(v, 0, 0, w, h); const r = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
+        txt = r?.data || null;
+      }
+      if (txt) doCheckin(txt.trim(), 'qr');
+    } catch {}
+  }
+  $('#camBtn').onclick = () => st.stream ? stopCam() : startCam();
+  $('#flipBtn').onclick = () => { facing = facing === 'user' ? 'environment' : 'user'; store.set('cam_facing', facing); if (st.stream) startCam(); };
+  st.cleanup.push(stopCam);
+
+  // --- NFC (Android) ---
+  const nb = $('#nfcBtn');
+  if (nb) nb.onclick = async () => {
+    try { const stop = await readNfc(serial => doCheckin(serial, 'rfid')); st.cleanup.push(stop);
+      nb.classList.remove('secondary'); nb.innerHTML = `${icon('nfc', 'sm')}NFC ενεργό`; toast('Ακουμπήστε κάρτα στη συσκευή'); }
+    catch (e) { toast('NFC: ' + e.message, true); }
+  };
+
+  // --- USB RFID (πληκτρολόγιο): γρήγορη σειρά χαρακτήρων + Enter ---
+  let buf = '', lastKey = 0;
+  const onKey = e => {
+    if (e.target.matches('input, textarea, select')) return;
+    const now = Date.now(); if (now - lastKey > 120) buf = ''; lastKey = now;
+    if (e.key === 'Enter') { if (buf.length >= 4) doCheckin(buf, 'rfid'); buf = ''; return; }
+    if (e.key.length === 1) buf += e.key;
+  };
+  document.addEventListener('keydown', onKey); st.cleanup.push(() => document.removeEventListener('keydown', onKey));
+
+  // --- Χειροκίνητα ---
+  $('#mq').oninput = e => { const t = e.target.value.toLowerCase().trim();
+    $('#ml').innerHTML = !t ? '' : members.filter(m => m.full_name.toLowerCase().includes(t)).slice(0, 6).map(m =>
+      `<button class="card tap list-item" data-c="${m.checkin_code}" style="width:100%;text-align:left;margin:8px 0 0;padding:8px">${avatar(m.full_name)}<b class="grow">${esc(m.full_name)}</b>${icon('check', 'sm')}</button>`).join('');
+    $$('[data-c]').forEach(b => b.onclick = () => { $('#mq').value = ''; $('#ml').innerHTML = ''; lastCode = ''; doCheckin(b.dataset.c, 'manual'); }); };
+  drawToday();
+  if (store.get('cam_auto') === '1') startCam();
+};
+
+// =====================================================================
+// Συνδρομές (ιδιοκτήτης)
+// =====================================================================
+function memState(ms) {   // κατάσταση στον client για τον αθλητή
+  const t = todayISO();
+  const valid = ms.filter(s => s.status === 'active' && s.start_date <= t && (!s.end_date || s.end_date >= t) && (s.kind === 'time' || s.visits_used < s.visits_total));
+  const cur = valid[0] || ms.find(s => s.status === 'frozen') || ms.filter(s => s.status !== 'cancelled')[0];
+  return { cur, valid: valid.length > 0 };
+}
+routes.subs = async (view, sub) => {
+  sub = sub || 'status';
+  view.innerHTML = `<div class="head-row"><h1>Συνδρομές</h1></div>
+    <div class="seg">${[['status', 'Αθλητές'], ['payments', 'Πληρωμές'], ['plans', 'Πακέτα']].map(([k, l]) =>
+      `<button data-s="${k}" class="${k === sub ? 'active' : ''}">${l}</button>`).join('')}</div><div id="sc"></div>`;
+  $$('[data-s]', view).forEach(b => b.onclick = () => location.hash = '#/subs/' + b.dataset.s);
+  await SUBS[sub]($('#sc'));
+};
+const SUBS = {
+  async load() {
+    const g = st.cur.gym_id;
+    const [status, members, plans, mems, pays] = await Promise.all([
+      q(sb.rpc('sub_status', { p_gym: g })),
+      q(sb.from('gym_members').select('id, full_name, email, phone').eq('gym_id', g).eq('is_athlete', true).eq('status', 'active').order('full_name')),
+      q(sb.from('membership_plans').select('*').eq('gym_id', g).order('sort_order')),
+      q(sb.from('memberships').select('*').eq('gym_id', g).order('start_date', { ascending: false })),
+      q(sb.from('payments').select('*').eq('gym_id', g).order('paid_on', { ascending: false }))
+    ]);
+    const bal = {};
+    mems.filter(m => m.status !== 'cancelled').forEach(m => bal[m.member_id] = (bal[m.member_id] || 0) + +m.price);
+    pays.forEach(p => bal[p.member_id] = (bal[p.member_id] || 0) - +p.amount);
+    return { status: Object.fromEntries(status.map(s => [s.member_id, s])), members, plans, mems, pays, bal };
+  },
+  async status(el) {
+    const D = await SUBS.load(), month = todayISO().slice(0, 7);
+    const cnt = k => D.members.filter(m => (D.status[m.id]?.status || 'none') === k).length;
+    const debt = Object.values(D.bal).filter(v => v > 0.009).reduce((a, v) => a + v, 0);
+    const income = D.pays.filter(p => p.paid_on.startsWith(month)).reduce((a, p) => a + +p.amount, 0);
+    let filter = 'all', search = '';
+    el.innerHTML = `<div class="kpis">
+        <div class="kpi accent"><b>${money(income)}</b><span>εισπράξεις ${MONTHS[+month.slice(5) - 1].toLowerCase()}</span></div>
+        <div class="kpi"><b style="color:${debt ? 'var(--bad)' : 'inherit'}">${money(debt)}</b><span>οφειλές</span></div>
+        <div class="kpi"><b>${cnt('active') + cnt('expiring')}</b><span>ενεργές</span></div>
+        <div class="kpi"><b style="color:${cnt('expired') ? 'var(--bad)' : 'inherit'}">${cnt('expired') + cnt('none')}</b><span>ληγμένες / χωρίς</span></div></div>
+      ${!D.plans.length ? `<div class="card" style="border-color:#fde68a;background:#fffbeb">Ορίστε πρώτα τα <a href="#/subs/plans">πακέτα</a> του γυμναστηρίου.</div>` : ''}
+      <div class="search">${icon('search', 'sm')}<input id="q" placeholder="Αναζήτηση αθλητή"></div>
+      <div class="chips" id="flt">${[['all', 'Όλοι', D.members.length, 'b-muted'], ['expiring', 'Λήγουν', cnt('expiring'), 'b-warn'],
+        ['expired', 'Ληγμένες', cnt('expired'), 'b-bad'], ['debt', 'Οφειλή', D.members.filter(m => D.bal[m.id] > 0.009).length, 'b-bad'],
+        ['none', 'Χωρίς', cnt('none'), 'b-muted'], ['frozen', 'Πάγωμα', cnt('frozen'), 'b-info']].map(([k, l, n, c]) =>
+        `<button class="chip ${k === 'all' ? 'active' : ''}" data-f="${k}">${l} <span class="badge ${c}">${n}</span></button>`).join('')}</div>
+      <div class="grid cols-2" id="list"></div>`;
+    const draw = () => {
+      const xs = D.members.filter(m => { const s = D.status[m.id]?.status || 'none';
+        return (filter === 'all' || (filter === 'debt' ? D.bal[m.id] > 0.009 : s === filter)) && m.full_name.toLowerCase().includes(search); });
+      $('#list').innerHTML = xs.map(m => { const s = D.status[m.id] || { status: 'none' }, [c, l] = SUB[s.status], b = D.bal[m.id] || 0;
+        return `<div class="card"><div class="list-item tap" data-m="${m.id}" style="cursor:pointer">${avatar(m.full_name)}<div class="grow" style="min-width:0">
+          <div class="row between nowrap"><b class="ellipsis">${esc(m.full_name)}</b><span class="badge ${c}">${l}</span></div>
+          <div class="small muted">${esc(subLine(s))}</div>
+          ${b > 0.009 ? `<span class="badge b-bad" style="margin-top:4px">Οφειλή ${money(b)}</span>` : ''}</div></div>
+          ${['expiring', 'expired', 'none'].includes(s.status) || b > 0.009 ? `<div class="row" style="margin-top:10px">
+            ${['expiring', 'expired', 'none'].includes(s.status) ? `<button class="btn small grow" data-renew="${m.id}">${icon('plus', 'sm')}${s.status === 'none' ? 'Νέα συνδρομή' : 'Ανανέωση'}</button>` : ''}
+            ${b > 0.009 ? `<button class="btn secondary small grow" data-pay="${m.id}">${icon('euro', 'sm')}Πληρωμή</button>` : ''}</div>` : ''}</div>`; }).join('')
+        || '<div class="card empty">Κανένας αθλητής</div>';
+      $$('[data-m]').forEach(b => b.onclick = () => SUBS.memberSheet(b.dataset.m, D));
+      $$('[data-renew]').forEach(b => b.onclick = () => SUBS.newSheet(b.dataset.renew, D));
+      $$('[data-pay]').forEach(b => b.onclick = () => SUBS.paySheet(b.dataset.pay, D));
+    };
+    $('#q').oninput = e => { search = e.target.value.toLowerCase(); draw(); };
+    $$('#flt .chip').forEach(c => c.onclick = () => { filter = c.dataset.f; $$('#flt .chip').forEach(x => x.classList.toggle('active', x === c)); draw(); });
+    draw();
+  },
+  memberSheet(id, D) {
+    const m = D.members.find(x => x.id === id), s = D.status[id] || { status: 'none' }, b = D.bal[id] || 0;
+    const ms = D.mems.filter(x => x.member_id === id), ps = D.pays.filter(x => x.member_id === id);
+    const cur = memState(ms).cur;
+    sheet(m.full_name, `
+      <div class="card" style="background:#f9fafb"><div class="row between"><span class="badge ${SUB[s.status][0]}">${SUB[s.status][1]}</span>
+        <b style="color:${b > 0.009 ? 'var(--bad)' : 'var(--ok)'}">${b > 0.009 ? 'Οφειλή ' + money(b) : b < -0.009 ? 'Προπληρωμή ' + money(-b) : 'Εξοφλημένος'}</b></div>
+        <p style="margin:8px 0 0">${esc(subLine(s))}</p></div>
+      <div class="row" style="margin-bottom:8px"><button class="btn grow" data-a="new">${icon('plus', 'sm')}${cur ? 'Ανανέωση' : 'Νέα συνδρομή'}</button>
+        <button class="btn secondary grow" data-a="pay">${icon('euro', 'sm')}Πληρωμή</button></div>
+      ${cur && cur.status !== 'cancelled' ? `<div class="row"><button class="btn secondary small grow" data-a="freeze">${cur.status === 'frozen' ? 'Ξεπάγωμα' : 'Πάγωμα'}</button>
+        <button class="btn danger small grow" data-a="cancel">Ακύρωση συνδρομής</button></div>` : ''}
+      <h2>Συνδρομές</h2>${ms.map(x => `<div class="row nowrap" style="padding:8px 0;border-top:1px solid var(--line);${x.status === 'cancelled' ? 'opacity:.5' : ''}">
+        <div class="grow"><b>${esc(x.plan_name)}</b><div class="small muted">${fmtDate(x.start_date)}${x.end_date ? ' – ' + fmtDate(x.end_date) : ''}
+          ${x.kind === 'visits' ? ` · ${x.visits_used}/${x.visits_total} επισκέψεις` : ''}${x.frozen_days ? ` · πάγωμα ${x.frozen_days} ημ.` : ''}
+          ${x.status === 'cancelled' ? ' · ακυρωμένη' : x.status === 'frozen' ? ' · σε πάγωμα' : ''}</div></div><b>${money(x.price)}</b></div>`).join('') || '<p class="muted">—</p>'}
+      <h2>Πληρωμές</h2>${ps.map(x => `<div class="row nowrap" style="padding:8px 0;border-top:1px solid var(--line)">
+        <div class="grow"><b>${money(x.amount)}</b><div class="small muted">${fmtDate(x.paid_on)} · ${METHOD[x.method]}${x.notes ? ' · ' + esc(x.notes) : ''}</div></div>
+        <button class="icon-btn" data-delpay="${x.id}" title="Διαγραφή" style="color:var(--bad)">${icon('x', 'sm')}</button></div>`).join('') || '<p class="muted">—</p>'}
+      ${m.phone ? `<a class="btn secondary block" style="margin-top:12px" href="tel:${esc(m.phone)}">Κλήση ${esc(m.phone)}</a>` : ''}`, (el, close) => {
+      $('[data-a="new"]', el).onclick = () => { close(); SUBS.newSheet(id, D); };
+      $('[data-a="pay"]', el).onclick = () => { close(); SUBS.paySheet(id, D); };
+      const fz = $('[data-a="freeze"]', el);
+      if (fz) fz.onclick = async () => { await q(sb.rpc('freeze_membership', { p_id: cur.id, p_freeze: cur.status !== 'frozen' })); close();
+        toast(cur.status === 'frozen' ? 'Η λήξη μετατέθηκε κατά τις ημέρες παγώματος' : 'Η συνδρομή πάγωσε'); route(); };
+      const cn = $('[data-a="cancel"]', el);
+      if (cn) cn.onclick = () => { close(); confirmSheet('Ακύρωση συνδρομής', `${cur.plan_name}: η συνδρομή ακυρώνεται και δεν μετράει στην οφειλή.`, 'Ακύρωση συνδρομής', async () => {
+        await q(sb.from('memberships').update({ status: 'cancelled' }).eq('id', cur.id)); route(); }, true); };
+      $$('[data-delpay]', el).forEach(bt => bt.onclick = () => { close(); confirmSheet('Διαγραφή πληρωμής', 'Η πληρωμή θα διαγραφεί οριστικά.', 'Διαγραφή', async () => {
+        await q(sb.from('payments').delete().eq('id', bt.dataset.delpay)); route(); }, true); });
+    });
+  },
+  newSheet(id, D) {
+    const m = D.members.find(x => x.id === id), plans = D.plans.filter(p => p.active);
+    if (!plans.length) { toast('Ορίστε πρώτα πακέτα', true); location.hash = '#/subs/plans'; return; }
+    const last = D.mems.find(x => x.member_id === id && x.status !== 'cancelled');
+    const def = plans.find(p => p.id === last?.plan_id) || plans[0];
+    sheet('Συνδρομή · ' + m.full_name, `<form id="nf">
+      <div class="field"><label>Πακέτο</label><select name="plan">${plans.map(p => `<option value="${p.id}" ${p.id === def.id ? 'selected' : ''}>${esc(p.name)} · ${money(p.price)}</option>`).join('')}</select></div>
+      <div class="form-grid"><div class="field"><label>Έναρξη</label>${dateField('nstart', '')}<div class="tiny muted" style="margin-top:4px">Κενό = αμέσως ή μετά τη λήξη της τρέχουσας</div></div>
+        <div class="field"><label>Τιμή (€)</label><input name="price" type="number" step="0.01" inputmode="decimal" value="${def.price}"></div></div>
+      <div class="form-grid"><div class="field"><label>Πληρώθηκαν τώρα (€)</label><input name="paid" type="number" step="0.01" inputmode="decimal" value="${def.price}"></div>
+        <div class="field"><label>Τρόπος</label><select name="method">${Object.entries(METHOD).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div></div>
+      <div class="field"><label>Σημείωση</label><input name="notes" placeholder="π.χ. έκπτωση φοιτητή"></div>
+      <button class="btn block">Καταχώρηση</button></form>`, (el, close) => {
+      bindDate('nstart'); $('[data-show="nstart"]', el).textContent = 'Αυτόματα';
+      const f = $('#nf', el);
+      f.plan.onchange = () => { const p = plans.find(x => x.id === f.plan.value); f.price.value = p.price; f.paid.value = p.price; };
+      f.price.oninput = () => { f.paid.value = f.price.value; };
+      f.onsubmit = async e => { e.preventDefault();
+        try { await q(sb.rpc('new_membership', { p_member: id, p_plan: f.plan.value, p_start: $('#nstart').value || null,
+            p_price: num(f.price.value), p_paid: num(f.paid.value) || 0, p_method: f.method.value, p_notes: f.notes.value || null }));
+          close(); toast('Η συνδρομή καταχωρήθηκε'); route(); } catch {} };
+    });
+  },
+  paySheet(id, D) {
+    const m = D.members.find(x => x.id === id), b = Math.max(0, D.bal[id] || 0);
+    const cur = memState(D.mems.filter(x => x.member_id === id)).cur;
+    sheet('Πληρωμή · ' + m.full_name, `<form id="pf">${b > 0.009 ? `<p>Οφειλή: <b style="color:var(--bad)">${money(b)}</b></p>` : ''}
+      <div class="form-grid"><div class="field"><label>Ποσό (€)</label><input name="amount" type="number" step="0.01" inputmode="decimal" required value="${b ? b.toFixed(2) : ''}"></div>
+        <div class="field"><label>Τρόπος</label><select name="method">${Object.entries(METHOD).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
+        <div class="field"><label>Ημερομηνία</label>${dateField('pdate', todayISO())}</div></div>
+      <div class="field"><label>Σημείωση</label><input name="notes"></div>
+      <p class="tiny muted">Η εφαρμογή καταγράφει την πληρωμή. Η απόδειξη εκδίδεται από το σύστημα τιμολόγησης του γυμναστηρίου.</p>
+      <button class="btn block">Καταχώρηση πληρωμής</button></form>`, (el, close) => {
+      bindDate('pdate');
+      $('#pf', el).onsubmit = async e => { e.preventDefault(); const f = e.target;
+        try { await q(sb.from('payments').insert({ gym_id: st.cur.gym_id, member_id: id, membership_id: cur?.id || null, amount: num(f.amount.value),
+            method: f.method.value, paid_on: $('#pdate').value || todayISO(), notes: f.notes.value || null }));
+          close(); toast('Η πληρωμή καταχωρήθηκε'); route(); } catch {} };
+    });
+  },
+  async payments(el) {
+    const D = await SUBS.load(); let ym = todayISO().slice(0, 7);
+    const names = Object.fromEntries(D.members.map(m => [m.id, m.full_name]));
+    const allNames = Object.fromEntries((await q(sb.from('gym_members').select('id, full_name').eq('gym_id', st.cur.gym_id))).map(m => [m.id, m.full_name]));
+    el.innerHTML = `<div class="card row between nowrap" style="padding:8px"><button class="icon-btn" id="pm">${icon('left')}</button>
+      <b id="ml" class="center grow"></b><button class="icon-btn" id="nm">${icon('right')}</button></div><div id="pc"></div>`;
+    const draw = () => {
+      const [y, mo] = ym.split('-').map(Number); $('#ml').textContent = `${MONTHS[mo - 1]} ${y}`;
+      $('#nm').disabled = ym >= todayISO().slice(0, 7);
+      const xs = D.pays.filter(p => p.paid_on.startsWith(ym)), tot = xs.reduce((a, p) => a + +p.amount, 0);
+      const byM = groupBy(xs, p => p.method);
+      const sold = D.mems.filter(m => m.status !== 'cancelled' && m.start_date.startsWith(ym));
+      $('#pc').innerHTML = `<div class="kpis"><div class="kpi accent"><b>${money(tot)}</b><span>εισπράξεις</span></div>
+        <div class="kpi"><b>${xs.length}</b><span>πληρωμές</span></div><div class="kpi"><b>${sold.length}</b><span>νέες συνδρομές</span></div></div>
+        ${xs.length ? `<div class="card"><b>Ανά τρόπο πληρωμής</b>${[...byM].map(([k, ys]) => { const v = ys.reduce((a, p) => a + +p.amount, 0);
+          return `<div style="margin-top:8px"><div class="row between small"><span>${METHOD[k]}</span><b>${money(v)}</b></div>
+          <div class="meter"><i style="width:${tot ? 100 * v / tot : 0}%;background:var(--brand)"></i></div></div>`; }).join('')}</div>` : ''}
+        <div class="card" style="padding:4px 14px">${xs.map((p, i) => `<div class="row nowrap" style="padding:10px 0;${i ? 'border-top:1px solid var(--line)' : ''}">
+          ${avatar(allNames[p.member_id] || names[p.member_id] || '?')}<div class="grow"><b>${esc(allNames[p.member_id] || '')}</b>
+          <div class="small muted">${fmtDate(p.paid_on)} · ${METHOD[p.method]}</div></div><b>${money(p.amount)}</b></div>`).join('') || '<div class="empty">Καμία πληρωμή</div>'}</div>`;
+    };
+    $('#pm').onclick = () => { const d = new Date(ym + '-15'); d.setMonth(d.getMonth() - 1); ym = isoOf(d).slice(0, 7); draw(); };
+    $('#nm').onclick = () => { const d = new Date(ym + '-15'); d.setMonth(d.getMonth() + 1); ym = isoOf(d).slice(0, 7); draw(); };
+    draw();
+  },
+  async plans(el) {
+    const plans = await q(sb.from('membership_plans').select('*').eq('gym_id', st.cur.gym_id).order('sort_order'));
+    el.innerHTML = `<div class="row between" style="margin-bottom:12px"><span class="muted small">Τα πακέτα που πουλάει το γυμναστήριο</span>
+      <button class="btn small" id="np">${icon('plus', 'sm')}Πακέτο</button></div>
+      <div class="grid cols-2">${plans.map(p => `<button class="card tap list-item" data-p="${p.id}" style="text-align:left;width:100%;${p.active ? '' : 'opacity:.5'}">
+        <div class="logo" style="background:var(--brand-soft);color:var(--brand)">${icon(p.kind === 'time' ? 'clock' : 'checkSq')}</div>
+        <div class="grow"><b>${esc(p.name)}</b><div class="small muted">${p.kind === 'time' ? `${p.months} ${p.months === 1 ? 'μήνας' : 'μήνες'}` :
+          `${p.visits} επισκέψεις${p.valid_days ? ` · ισχύ ${p.valid_days} ημ.` : ''}`}${p.active ? '' : ' · ανενεργό'}</div></div>
+        <b style="font-size:18px">${money(p.price)}</b></button>`).join('') || '<div class="card empty">Κανένα πακέτο ακόμα</div>'}</div>`;
+    const edit = p => {
+      const isNew = !p; p = p || { kind: 'time', months: 1, price: '', active: true };
+      sheet(isNew ? 'Νέο πακέτο' : p.name, `<form id="plf">
+        <div class="field"><label>Όνομα</label><input name="name" required value="${esc(p.name || '')}" placeholder="π.χ. Μηνιαίο kickboxing"></div>
+        <div class="seg" id="kseg"><button type="button" data-k="time" class="${p.kind === 'time' ? 'active' : ''}">Χρονικό</button>
+          <button type="button" data-k="visits" class="${p.kind === 'visits' ? 'active' : ''}">Επισκέψεις</button></div>
+        <div class="form-grid"><div class="field" data-for="time"><label>Μήνες</label><input name="months" type="number" min="1" value="${p.months ?? 1}"></div>
+          <div class="field" data-for="visits"><label>Επισκέψεις</label><input name="visits" type="number" min="1" value="${p.visits ?? 10}"></div>
+          <div class="field" data-for="visits"><label>Ισχύ (ημέρες, προαιρετικό)</label><input name="valid_days" type="number" min="1" value="${p.valid_days ?? ''}"></div>
+          <div class="field"><label>Τιμή (€)</label><input name="price" type="number" step="0.01" inputmode="decimal" required value="${p.price}"></div></div>
+        <label class="check" style="margin-bottom:14px"><input type="checkbox" name="active" ${p.active ? 'checked' : ''}>Ενεργό (εμφανίζεται στις νέες συνδρομές)</label>
+        <button class="btn block">Αποθήκευση</button></form>`, (el2, close) => {
+        let kind = p.kind; const f = $('#plf', el2);
+        const sync = () => { $$('[data-for]', el2).forEach(x => x.style.display = x.dataset.for === kind ? '' : 'none');
+          $$('#kseg button', el2).forEach(x => x.classList.toggle('active', x.dataset.k === kind)); };
+        $$('#kseg button', el2).forEach(x => x.onclick = () => { kind = x.dataset.k; sync(); }); sync();
+        f.onsubmit = async e => { e.preventDefault();
+          const row = { gym_id: st.cur.gym_id, name: f.name.value.trim(), kind, price: num(f.price.value) || 0, active: f.active.checked,
+            months: kind === 'time' ? num(f.months.value) : null, visits: kind === 'visits' ? num(f.visits.value) : null,
+            valid_days: kind === 'visits' ? num(f.valid_days.value) : null };
+          if (isNew) row.sort_order = plans.length + 1;
+          await q(isNew ? sb.from('membership_plans').insert(row) : sb.from('membership_plans').update(row).eq('id', p.id));
+          close(); toast('Αποθηκεύτηκε'); route(); };
+      });
+    };
+    $('#np').onclick = () => edit(null);
+    $$('[data-p]').forEach(b => b.onclick = () => edit(plans.find(p => p.id === b.dataset.p)));
+  }
+};
+
+// =====================================================================
+// Αθλητής: η κάρτα μου (QR check-in + συνδρομή + πληρωμές)
+// =====================================================================
+routes.card = async view => {
+  const id = st.cur.member_id;
+  const [me, ms, ps] = await Promise.all([
+    q(sb.from('gym_members').select('full_name, checkin_code').eq('id', id).single()),
+    q(sb.from('memberships').select('*').eq('member_id', id).order('start_date', { ascending: false })),
+    q(sb.from('payments').select('*').eq('member_id', id).order('paid_on', { ascending: false }))
+  ]);
+  const { cur, valid } = memState(ms);
+  const bal = ms.filter(m => m.status !== 'cancelled').reduce((a, m) => a + +m.price, 0) - ps.reduce((a, p) => a + +p.amount, 0);
+  const left = cur?.end_date ? Math.round((new Date(cur.end_date + 'T12:00:00') - new Date(todayISO() + 'T12:00:00')) / 864e5) : null;
+  const status = !cur ? 'none' : cur.status === 'frozen' ? 'frozen' : !valid ? 'expired'
+    : ((left != null && left <= 7) || (cur.kind === 'visits' && cur.visits_total - cur.visits_used <= 2)) ? 'expiring' : 'active';
+  view.innerHTML = `<h1>Η κάρτα μου</h1>
+    <div class="card center" style="background:var(--brand-2);color:#fff;border:0">
+      <div class="row nowrap" style="justify-content:center;margin-bottom:10px"><b>${esc(st.cur.gym_name)}</b></div>
+      <div style="background:#fff;border-radius:16px;padding:12px;display:inline-block">${me.checkin_code ? qrSvg('OGYM:' + me.checkin_code, 230) : ''}</div>
+      <h2 style="margin:12px 0 2px;color:#fff">${esc(me.full_name)}</h2>
+      <div class="small" style="opacity:.75">Δείξτε το QR στην κάμερα check-in του γυμναστηρίου</div></div>
+    <div class="card"><div class="row between"><b>Συνδρομή</b><span class="badge ${SUB[status][0]}">${SUB[status][1]}</span></div>
+      ${cur ? `<h2 style="margin:10px 0 4px">${esc(cur.plan_name)}</h2>
+        ${cur.kind === 'visits' ? `<div class="row between small"><span>Επισκέψεις</span><b>${cur.visits_total - cur.visits_used} από ${cur.visits_total}</b></div>
+          <div class="meter" style="margin:6px 0 8px"><i style="width:${100 * (cur.visits_total - cur.visits_used) / cur.visits_total}%;background:var(--brand)"></i></div>` : ''}
+        ${cur.end_date ? `<div class="small">Ισχύει ${fmtDate(cur.start_date)} – <b>${fmtDate(cur.end_date)}</b>${left != null && left >= 0 ? ` · απομένουν ${left} ημέρες` : ''}</div>` : ''}
+        ${cur.status === 'frozen' ? `<p class="small">Σε πάγωμα από ${fmtDate(cur.frozen_from)}. Η λήξη θα μετατεθεί.</p>` : ''}`
+      : '<p class="muted">Δεν υπάρχει συνδρομή. Επικοινωνήστε με το γυμναστήριο.</p>'}
+      ${bal > 0.009 ? `<p style="margin:10px 0 0"><span class="badge b-bad">Υπόλοιπο προς εξόφληση ${money(bal)}</span></p>` : ''}</div>
+    ${ps.length ? `<h2>Πληρωμές</h2><div class="card" style="padding:4px 14px">${ps.map((p, i) => `<div class="row nowrap" style="padding:10px 0;${i ? 'border-top:1px solid var(--line)' : ''}">
+      <div class="grow">${fmtDate(p.paid_on)}<div class="small muted">${METHOD[p.method]}</div></div><b>${money(p.amount)}</b></div>`).join('')}</div>` : ''}`;
 };
 
 // =====================================================================
