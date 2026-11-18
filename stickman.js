@@ -123,5 +123,14 @@
   requestAnimationFrame(loop);
   if (reduce) new MutationObserver(() => loop(0)).observe(document.documentElement, { childList: true, subtree: true });
 
-  window.Stickman = { svg, motions: Object.keys(M), codes: CODE };
+  // Αντιστοίχιση κωδικών βιβλιοθήκης → κίνηση από τη βάση (exercise_library.motion)
+  function setMap(map) { for (const [c, m] of Object.entries(map || {})) if (m && M[m]) CODE[c] = m; }
+  const MOTION_LABELS = { stand:'Όρθια στάση', squat:'Κάθισμα', hinge:'Κάμψη ισχίου', swing:'Αιώρηση', pressup:'Πιέσεις πάνω',
+    pulldown:'Έλξη προς τα κάτω', row:'Κωπηλατική', curl:'Κάμψη χεριών', pushdown:'Έκταση τρικεφάλων', lateral:'Ανύψωση χεριών',
+    pressfwd:'Πιέσεις μπροστά', lunge:'Προβολή', plank:'Σανίδα', pushup:'Κάμψεις', punch:'Γροθιές', jump:'Άλματα', run:'Τρέξιμο',
+    walk:'Περπάτημα', legext:'Εκτάσεις ποδιών', legcurl:'Κάμψεις ποδιών', legpress:'Πρέσα ποδιών', calf:'Γάμπες',
+    crunch:'Κοιλιακοί', twist:'Περιστροφές κορμού', pullup:'Έλξεις μονόζυγου', dips:'Βυθίσεις', hipthrust:'Γέφυρα ισχίου', burpee:'Burpee' };
+  window.Stickman = { svg, setMap, motions: Object.keys(M), labels: MOTION_LABELS, codes: CODE,
+    svgMotion: (motion, big) => svg('__m_' + motion, big) };
+  for (const k of Object.keys(M)) CODE['__m_' + k] = k;
 })();
