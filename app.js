@@ -213,6 +213,8 @@ async function loadMe() {
     q(sb.from('exercise_library').select('code, motion'))
   ]);
   st.memberships = ms; st.isAdmin = adm.length > 0;
+  try { const tones = await q(sb.from('gyms').select('id, tone')); const T = Object.fromEntries(tones.map(t => [t.id, t.tone]));
+    ms.forEach(m => m.tone = T[m.gym_id] || 'formal'); } catch {}
   Stickman.setMap(Object.fromEntries(lib.map(l => [l.code, l.motion])));
   const saved = store.get('gym_member');
   st.cur = ms.find(m => m.member_id === saved) || ms.find(m => m.gym_status === 'active') || ms[0] || null;
@@ -246,6 +248,39 @@ function renderPending() {
     <button class="btn secondary block" id="logout">Αποσύνδεση</button></div></div>`;
   $('#logout').onclick = () => sb.auth.signOut();
 }
+
+// ---------- Ύφος λεκτικών ανά γυμναστήριο (το ορίζει η διαχείριση) ----------
+// Σοβαρό: τα κείμενα όπως είναι. Τσαχπινιάρικο: αλλάζουν λέξεις/φράσεις στην οθόνη (όχι τα δεδομένα).
+const TONE = (() => {
+  const EXACT = {   // ολόκληρο κείμενο κουμπιού/τίτλου
+    'Αθλητές': 'Θηρία', 'Αθλητής': 'Θηρίο', 'Νέος': 'Νέο θηρίο', 'Παρουσίες': 'Ποιος ήρθε', 'Τμήματα': 'Μαθήματα',
+    'Κρατήσεις': 'Κλείσε θέση', 'Προπόνηση': 'Ξύλο', 'Η προπόνησή μου': 'Το ξύλο μου', 'Πρόοδος': 'Τα κέρδη μου',
+    'Ιστορικό': 'Τα πεπραγμένα', 'Θέλουν προσοχή': 'Το \'χουν ρίξει', 'θέλουν προσοχή': 'το \'χουν ρίξει', 'προπονήθηκαν σήμερα': 'έφαγαν ξύλο σήμερα', 'Δυσκολεύεται': 'Ζορίζεται', 'Στασιμότητα': 'Κόλλησε',
+    'Έτοιμος για αύξηση': 'Θέλει κι άλλα κιλά', 'Μπράβο!': 'Θηρίο! 🔥', 'Τέλος': 'Φτάνει', 'Ολοκλήρωση προπόνησης': 'Τέλος το ξύλο 💪',
+    'Καλή προπόνηση! 💪': 'Πάμε για ξύλο! 🥊', 'Παρών ✓': 'Ήρθε το θηρίο! 🔥', 'Τέλος προγράμματος': 'Τελείωσε το μαρτύριο',
+    'Κράτηση': 'Μέσα!', 'Κλεισμένο': 'Είσαι μέσα', 'Λίστα αναμονής': 'Στην ουρά', 'Νέα ρεκόρ!': 'Έσπασε ρεκόρ! 🏆',
+    'Όλοι': 'Όλα τα θηρία', 'Ήρθε χωρίς κράτηση': 'Ήρθε απρόσκλητο'
+  };
+  const WORDS = [   // μέσα σε προτάσεις (κρατάμε το γένος: αθλητής → μαχητής)
+    [/(?<!\p{L})αθλητ(ής|ή|ές|ών)(?!\p{L})/gu, 'μαχητ$1'], [/(?<!\p{L})Αθλητ(ής|ή|ές|ών)(?!\p{L})/gu, 'Μαχητ$1'],
+    [/(?<!\p{L})προπονήθηκαν(?!\p{L})/gu, 'έφαγαν ξύλο'], [/Σετ (\d+) έγινε/g, 'Σετ $1 έπεσε 💥']
+  ];
+  let on = false, busy = false;
+  const fix = t => { if (!t || !t.trim()) return t; const k = t.trim(); if (EXACT[k]) return t.replace(k, EXACT[k]);
+    let r = t; for (const [re, to] of WORDS) r = r.replace(re, to); return r; };
+  function run(root) {
+    if (!on || busy) return; busy = true;
+    const w = document.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT, { acceptNode: n =>
+      n.parentElement && n.parentElement.closest('script,style,textarea,#printArea') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+    for (let n = w.nextNode(); n; n = w.nextNode()) { const v = fix(n.nodeValue); if (v !== n.nodeValue) n.nodeValue = v; }
+    document.querySelectorAll('input[placeholder]').forEach(i => { const v = fix(i.placeholder); if (v !== i.placeholder) i.placeholder = v; });
+    busy = false;
+  }
+  let raf = 0;
+  new MutationObserver(() => { if (on && !raf) raf = requestAnimationFrame(() => { raf = 0; run(); }); })
+    .observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+  return { set(t) { on = t === 'playful'; if (on) run(); }, get on() { return on; } };
+})();
 
 // ---------- Βοήθεια «?» για νέους χρήστες ----------
 const HELP = {
@@ -314,7 +349,7 @@ function tabsFor(m) {
   return t;
 }
 function shell() {
-  const m = st.cur; applyTheme(m);
+  const m = st.cur; applyTheme(m); TONE.set(m && m.tone);
   const role = m ? [m.is_owner && 'Ιδιοκτήτης', m.is_coach && 'Προπονητής', m.is_athlete && 'Αθλητής'].filter(Boolean).join(' · ') : 'Διαχειριστής';
   const name = m ? m.gym_name : 'Omnisoft Gym';
   const ini = name.split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase();
@@ -1831,7 +1866,9 @@ const ADMIN = {
         <div class="field"><label>Πακέτο</label><select name="plan">${Object.entries(PLAN).map(([k, [, l]]) => `<option value="${k}" ${k === g.plan ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
         <div class="field"><label>Μέγιστοι αθλητές</label><input name="max_athletes" type="number" min="1" value="${g.max_athletes}"></div>
         <div class="field"><label>Ισχύει έως</label>${dateField('gpaid', g.paid_until || '')}</div>
-        <div class="field"><label>Χρώμα εφαρμογής</label><input name="primary_color" type="color" value="${esc(g.primary_color)}"></div></div>
+        <div class="field"><label>Χρώμα εφαρμογής</label><input name="primary_color" type="color" value="${esc(g.primary_color)}"></div>
+        <div class="field"><label>Ύφος λεκτικών</label><select name="tone"><option value="formal" ${g.tone !== 'playful' ? 'selected' : ''}>Σοβαρό</option>
+          <option value="playful" ${g.tone === 'playful' ? 'selected' : ''}>Τσαχπινιάρικο</option></select></div></div>
         <h3 style="margin-top:6px">Ειδική χρέωση <span class="small muted">(κενό = τιμή πλατφόρμας)</span></h3><div class="form-grid">
           <div class="field"><label>Ελάχιστη / μήνα (€)</label><input name="bill_min_fee" type="number" step="0.01" min="0" value="${g.bill_min_fee ?? ''}"></div>
           <div class="field"><label>Αθλητές που περιλαμβάνει</label><input name="bill_included" type="number" min="0" value="${g.bill_included ?? ''}"></div>
@@ -1843,7 +1880,7 @@ const ADMIN = {
         close(); toast(b.dataset.st === '1' ? 'Εγκρίθηκε' : 'Τέθηκε σε αναστολή'); route(); });
       $('#gf', el).onsubmit = async e => { e.preventDefault(); const f = e.target;
         await q(sb.from('gyms').update({ name: f.name.value, city: f.city.value || null, phone: f.phone.value || null, plan: f.plan.value,
-          max_athletes: num(f.max_athletes.value) || 30, paid_until: $('#gpaid').value || null, primary_color: f.primary_color.value,
+          max_athletes: num(f.max_athletes.value) || 30, paid_until: $('#gpaid').value || null, primary_color: f.primary_color.value, tone: f.tone.value,
           admin_notes: f.admin_notes.value || null,
           bill_min_fee: num(f.bill_min_fee.value), bill_included: num(f.bill_included.value), bill_per_athlete: num(f.bill_per_athlete.value) }).eq('id', g.id));
         close(); toast('Αποθηκεύτηκε'); route(); };
