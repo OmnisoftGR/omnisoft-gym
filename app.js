@@ -823,12 +823,19 @@ routes.members = async view => {
 // Ρυθμίσεις ιδιοκτήτη
 // =====================================================================
 routes.settings = async view => {
-  const g = await q(sb.from('gyms').select('*').eq('id', st.cur.gym_id).single());
-  const plans = { trial: 'Δοκιμαστικό', basic: 'Basic', pro: 'Pro', free: 'Δωρεάν' };
+  const thisM = todayISO().slice(0, 8) + '01', prevM = addDays(thisM, -1).slice(0, 8) + '01';
+  const [g, b1, b0] = await Promise.all([q(sb.from('gyms').select('*').eq('id', st.cur.gym_id).single()),
+    q(sb.rpc('billing_month', { p_month: thisM, p_gym: st.cur.gym_id })), q(sb.rpc('billing_month', { p_month: prevM, p_gym: st.cur.gym_id }))]);
+  const B = b1[0] || {}, P0 = b0[0] || {};
   view.innerHTML = `<h1>Ρυθμίσεις</h1>
-    <div class="card row between"><div><div class="small muted">Πακέτο</div><b>${plans[g.plan] || g.plan}</b></div>
-      <div><div class="small muted">Αθλητές</div><b>έως ${g.max_athletes}</b></div>
-      <div><div class="small muted">Ισχύει έως</div><b>${fmtDate(g.paid_until)}</b></div></div>
+    <div class="card"><h3>Χρέωση εφαρμογής</h3>
+      ${g.plan === 'trial' ? `<p class="small"><span class="badge b-info">Δοκιμαστική περίοδος</span> έως ${fmtDate(g.paid_until)} · χωρίς χρέωση</p>` :
+        g.plan === 'free' ? '<p class="small"><span class="badge b-ok">Δωρεάν</span></p>' : ''}
+      <div class="kpis" style="margin:10px 0"><div class="kpi accent"><b>${money(B.amount || 0)}</b><span>${MONTHS[+thisM.slice(5, 7) - 1]} (μέχρι σήμερα)</span></div>
+        <div class="kpi"><b>${B.active_athletes ?? 0}</b><span>ενεργοί αθλητές τον μήνα</span></div>
+        <div class="kpi"><b>${money(P0.amount || 0)}</b><span>${MONTHS[+prevM.slice(5, 7) - 1]} · ${P0.active_athletes ?? 0} αθλητές</span></div></div>
+      <p class="small muted" style="margin:0">${money(B.min_fee || 0)} τον μήνα με έως ${B.included ?? 0} ενεργούς αθλητές, και ${money(B.per_athlete || 0)} για κάθε επιπλέον.
+        Ενεργός είναι όποιος έκανε έστω ένα check-in ή μία προπόνηση μέσα στον μήνα.</p></div>
     <form class="card" id="gf"><h3>Γυμναστήριο</h3><div class="form-grid" style="margin-top:10px">
       <div class="field"><label>Όνομα</label><input name="name" value="${esc(g.name)}"></div>
       <div class="field"><label>Πόλη</label><input name="city" value="${esc(g.city || '')}"></div>
@@ -1806,17 +1813,37 @@ routes.card = async view => {
 // =====================================================================
 // Διαχείριση πλατφόρμας
 // =====================================================================
-const PLAN = { trial: ['b-info', 'Δοκιμαστικό'], basic: ['b-muted', 'Basic'], pro: ['b-brand', 'Pro'], free: ['b-ok', 'Δωρεάν'] };
+const PLAN = { trial: ['b-info', 'Δοκιμαστικό'], basic: ['b-brand', 'Με χρέωση'], pro: ['b-brand', 'Pro'], free: ['b-ok', 'Δωρεάν'] };
 const GSTAT = { pending: ['b-warn', 'Σε αναμονή'], active: ['b-ok', 'Ενεργό'], suspended: ['b-bad', 'Σε αναστολή'] };
 routes.admin = async (view, sub) => {
   sub = sub || 'gyms';
   view.innerHTML = `<h1>Διαχείριση</h1>
-    <div class="seg">${[['gyms', 'Γυμναστήρια'], ['library', 'Ασκήσεις'], ['platform', 'Ρυθμίσεις'], ['admins', 'Admins']].map(([k, l]) =>
+    <div class="seg">${[['gyms', 'Γυμναστήρια'], ['billing', 'Χρεώσεις'], ['library', 'Ασκήσεις'], ['platform', 'Ρυθμίσεις'], ['admins', 'Admins']].map(([k, l]) =>
       `<button data-s="${k}" class="${k === sub ? 'active' : ''}">${l}</button>`).join('')}</div><div id="ac"></div>`;
   $$('[data-s]', view).forEach(b => b.onclick = () => location.hash = '#/admin/' + b.dataset.s);
   await ADMIN[sub]($('#ac'));
 };
 const ADMIN = {
+  async billing(el) {
+    let m = todayISO().slice(0, 8) + '01';
+    const load = async () => {
+      const rows = await q(sb.rpc('billing_month', { p_month: m }));
+      const tot = rows.reduce((a, r) => a + +r.amount, 0), ath = rows.reduce((a, r) => a + r.active_athletes, 0);
+      el.innerHTML = `<div class="card row between nowrap" style="padding:8px"><button class="icon-btn" id="pm" aria-label="Προηγούμενος μήνας">${icon('left')}</button>
+          <b>${MONTHS[+m.slice(5, 7) - 1]} ${m.slice(0, 4)}</b>
+          <button class="icon-btn" id="nm" aria-label="Επόμενος μήνας" ${m >= todayISO().slice(0, 8) + '01' ? 'disabled' : ''}>${icon('right')}</button></div>
+        <div class="kpis"><div class="kpi accent"><b>${money(tot)}</b><span>σύνολο μήνα${m === todayISO().slice(0, 8) + '01' ? ' (μέχρι σήμερα)' : ''}</span></div>
+          <div class="kpi"><b>${ath}</b><span>ενεργοί αθλητές</span></div><div class="kpi"><b>${rows.filter(r => +r.amount > 0).length}</b><span>γυμναστήρια με χρέωση</span></div></div>
+        <div class="card" style="padding:4px 14px">${rows.map((r, i) => `<div class="row nowrap" style="padding:10px 0;${i ? 'border-top:1px solid var(--line)' : ''}">
+          <div class="grow"><b>${esc(r.gym_name)}</b> <span class="badge ${(PLAN[r.plan] || PLAN.basic)[0]}">${(PLAN[r.plan] || [, r.plan])[1]}</span>
+            <div class="small muted">${r.active_athletes} ενεργοί · ${money(r.min_fee)} έως ${r.included}${r.extra_athletes ? ` + ${r.extra_athletes} × ${money(r.per_athlete)}` : ''}</div></div>
+          <b style="font-size:17px">${money(r.amount)}</b></div>`).join('') || '<div class="empty">Κανένα γυμναστήριο</div>'}</div>
+        <p class="tiny muted">Ενεργός αθλητής: τουλάχιστον ένα check-in ή μία προπόνηση μέσα στον μήνα. Δοκιμαστικά και δωρεάν γυμναστήρια δεν χρεώνονται.</p>`;
+      $('#pm').onclick = () => { m = addDays(m, -1).slice(0, 8) + '01'; load(); };
+      $('#nm').onclick = () => { m = addDays(m, 32).slice(0, 8) + '01'; load(); };
+    };
+    await load();
+  },
   async gyms(el) {
     const [gyms, stats] = await Promise.all([q(sb.from('gyms').select('*').order('created_at', { ascending: false })), q(sb.rpc('admin_gym_stats'))]);
     const S = Object.fromEntries(stats.map(s => [s.gym_id, s]));
@@ -1855,6 +1882,10 @@ const ADMIN = {
         <div class="field"><label>Ισχύει έως</label>${dateField('gpaid', g.paid_until || '')}</div>
         <div class="field"><label>Κύριο χρώμα</label><input name="primary_color" type="color" value="${esc(g.primary_color)}"></div>
         <div class="field"><label>Σκούρο χρώμα</label><input name="secondary_color" type="color" value="${esc(g.secondary_color)}"></div></div>
+        <h3 style="margin-top:6px">Ειδική χρέωση <span class="small muted">(κενό = τιμή πλατφόρμας)</span></h3><div class="form-grid">
+          <div class="field"><label>Ελάχιστη / μήνα (€)</label><input name="bill_min_fee" type="number" step="0.01" min="0" value="${g.bill_min_fee ?? ''}"></div>
+          <div class="field"><label>Αθλητές που περιλαμβάνει</label><input name="bill_included" type="number" min="0" value="${g.bill_included ?? ''}"></div>
+          <div class="field"><label>€ ανά επιπλέον αθλητή</label><input name="bill_per_athlete" type="number" step="0.01" min="0" value="${g.bill_per_athlete ?? ''}"></div></div>
         <div class="field"><label>Σημειώσεις διαχείρισης</label><textarea name="admin_notes" rows="2">${esc(g.admin_notes || '')}</textarea></div>
         <button class="btn block">Αποθήκευση</button></form>`, (el, close) => {
       bindDate('gpaid');
@@ -1863,7 +1894,8 @@ const ADMIN = {
       $('#gf', el).onsubmit = async e => { e.preventDefault(); const f = e.target;
         await q(sb.from('gyms').update({ name: f.name.value, city: f.city.value || null, phone: f.phone.value || null, plan: f.plan.value,
           max_athletes: num(f.max_athletes.value) || 30, paid_until: $('#gpaid').value || null, primary_color: f.primary_color.value,
-          secondary_color: f.secondary_color.value, admin_notes: f.admin_notes.value || null }).eq('id', g.id));
+          secondary_color: f.secondary_color.value, admin_notes: f.admin_notes.value || null,
+          bill_min_fee: num(f.bill_min_fee.value), bill_included: num(f.bill_included.value), bill_per_athlete: num(f.bill_per_athlete.value) }).eq('id', g.id));
         close(); toast('Αποθηκεύτηκε'); route(); };
     });
   },
@@ -1915,11 +1947,16 @@ const ADMIN = {
           <div class="field"><label>Ημέρες δοκιμής</label><input name="default_trial_days" type="number" value="${p.default_trial_days}"></div>
           <div class="field"><label>Κύριο χρώμα</label><input name="default_primary_color" type="color" value="${esc(p.default_primary_color)}"></div>
           <div class="field"><label>Σκούρο χρώμα</label><input name="default_secondary_color" type="color" value="${esc(p.default_secondary_color)}"></div></div></div>
+      <div class="card"><h3>Χρέωση εφαρμογής</h3><p class="small muted">Ελάχιστη μηνιαία χρέωση που περιλαμβάνει έναν αριθμό ενεργών αθλητών, και χρέωση για κάθε επιπλέον.</p>
+        <div class="form-grid"><div class="field"><label>Ελάχιστη / μήνα (€)</label><input name="bill_min_fee" type="number" step="0.01" min="0" value="${p.bill_min_fee}"></div>
+          <div class="field"><label>Αθλητές που περιλαμβάνει</label><input name="bill_included" type="number" min="0" value="${p.bill_included}"></div>
+          <div class="field"><label>€ ανά επιπλέον αθλητή</label><input name="bill_per_athlete" type="number" step="0.01" min="0" value="${p.bill_per_athlete}"></div></div></div>
       <button class="btn block">Αποθήκευση</button></form>`;
     $('#pf').onsubmit = async e => { e.preventDefault(); const f = e.target;
       const upd = { allow_gym_signup: f.allow_gym_signup.checked, default_plan: f.default_plan.value, default_max_athletes: num(f.default_max_athletes.value),
         default_trial_days: num(f.default_trial_days.value), default_primary_color: f.default_primary_color.value,
-        default_secondary_color: f.default_secondary_color.value, updated_at: new Date().toISOString() };
+        default_secondary_color: f.default_secondary_color.value, updated_at: new Date().toISOString(),
+        bill_min_fee: num(f.bill_min_fee.value) ?? 0, bill_included: num(f.bill_included.value) ?? 0, bill_per_athlete: num(f.bill_per_athlete.value) ?? 0 };
       await q(sb.from('platform_settings').update(upd).eq('id', 1)); toast('Αποθηκεύτηκε'); };
   },
   async admins(el) {
