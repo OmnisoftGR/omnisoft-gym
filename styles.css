@@ -359,3 +359,7 @@ h2.grp { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; marg
 .help:hover { color: var(--brand); border-color: var(--brand); }
 .help-body p { margin: 0 0 10px; }
 .help-body li { margin-bottom: 6px; }
+.help-body h4 { margin: 14px 0 6px; font-size: 14px; color: var(--brand); text-transform: uppercase; letter-spacing: .03em; }
+.help-body h4:first-child { margin-top: 0; }
+.help-body ul, .help-body ol { padding-left: 20px; margin: 0 0 8px; }
+.help-body .badge { font-size: 11px; }
