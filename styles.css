@@ -363,3 +363,4 @@ h2.grp { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; marg
 .help-body h4:first-child { margin-top: 0; }
 .help-body ul, .help-body ol { padding-left: 20px; margin: 0 0 8px; }
 .help-body .badge { font-size: 11px; }
+@media (max-width: 480px) { .hide-sm { display: none; } }
