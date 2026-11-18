@@ -64,19 +64,6 @@ function subLine(s) {
   if (s.end_date) parts.push(`έως ${fmtDate(s.end_date)}`);
   return parts.filter(Boolean).join(' · ');
 }
-function qrSvg(text, size = 220) {
-  if (!window.qrcode) return '<p class="muted">Δεν φορτώθηκε η βιβλιοθήκη QR</p>';
-  const qr = qrcode(0, 'M'); qr.addData(text); qr.make();
-  return qr.createSvgTag({ cellSize: Math.max(2, Math.floor(size / (qr.getModuleCount() + 8))), margin: 4, scalable: true })
-    .replace('<svg ', `<svg style="width:${size}px;height:${size}px;max-width:100%" `);
-}
-const nfcSupported = () => 'NDEFReader' in window;
-async function readNfc(onSerial) {
-  const r = new NDEFReader(), ctrl = new AbortController();
-  await r.scan({ signal: ctrl.signal });
-  r.onreading = e => onSerial((e.serialNumber || '').replace(/:/g, '').toUpperCase());
-  return () => ctrl.abort();
-}
 let audioCtx;
 function beep(ok) { try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
   const o = audioCtx.createOscillator(), gn = audioCtx.createGain();
@@ -267,13 +254,13 @@ function renderPending() {
 function tabsFor(m) {
   const t = [], active = m && m.gym_status === 'active';
   if (isStaff(m)) {
-    t.push(['athletes', 'Αθλητές', 'users'], ['checkin', 'Check-in', 'scan'], ['classes', 'Τμήματα', 'cal']);
+    t.push(['athletes', 'Αθλητές', 'users'], ['checkin', 'Παρουσίες', 'checkSq'], ['classes', 'Τμήματα', 'cal']);
     if (m.is_owner) t.push(['subs', 'Συνδρομές', 'wallet']);
     t.push(['programs', 'Προγράμματα', 'clip'], ['exercises', 'Ασκήσεις', 'dumbbell'], ['members', 'Μέλη', 'card']);
   }
   if (m && m.is_athlete && active) {
-    if (isStaff(m)) t.push(['today', 'Η προπόνησή μου', 'play'], ['card', 'Η κάρτα μου', 'qr']);
-    else t.push(['today', 'Προπόνηση', 'play'], ['book', 'Κρατήσεις', 'cal'], ['card', 'Κάρτα', 'qr'], ['progress', 'Πρόοδος', 'trend'], ['history', 'Ιστορικό', 'clock']);
+    if (isStaff(m)) t.push(['today', 'Η προπόνησή μου', 'play'], ['card', 'Η συνδρομή μου', 'wallet']);
+    else t.push(['today', 'Προπόνηση', 'play'], ['book', 'Κρατήσεις', 'cal'], ['card', 'Συνδρομή', 'wallet'], ['progress', 'Πρόοδος', 'trend'], ['history', 'Ιστορικό', 'clock']);
   }
   if (m && m.is_owner && active) t.push(['settings', 'Ρυθμίσεις', 'cog']);
   if (st.isAdmin) t.push(['admin', 'Διαχείριση', 'shield']);
@@ -758,31 +745,17 @@ async function memberSheet(m, after) {
     <div class="form-grid"><div class="field"><label>Τηλέφωνο</label><input name="phone" type="tel" value="${esc(m.phone || '')}"></div>
       <div class="field"><label>Στόχος</label><input name="goal" value="${esc(m.goal || '')}"></div>
       <div class="field"><label>Προπονητής</label><select name="coach_id"><option value="">—</option>${coaches.map(c =>
-        `<option value="${c.id}" ${c.id === m.coach_id ? 'selected' : ''}>${esc(c.full_name)}</option>`).join('')}</select></div>
-      <div class="field"><label>Κάρτα NFC / RFID</label><div class="row nowrap"><input name="rfid_tag" value="${esc(m.rfid_tag || '')}" placeholder="—" class="grow">
-        <button type="button" class="btn secondary small" id="readCard" title="Ανάγνωση κάρτας">${icon('nfc', 'sm')}</button></div></div></div>
+        `<option value="${c.id}" ${c.id === m.coach_id ? 'selected' : ''}>${esc(c.full_name)}</option>`).join('')}</select></div></div>
     <div class="row" style="margin-bottom:14px"><label class="check"><input type="checkbox" name="is_athlete" ${m.is_athlete ? 'checked' : ''}>Αθλητής</label>
       ${owner ? `<label class="check"><input type="checkbox" name="is_coach" ${m.is_coach ? 'checked' : ''}>Προπονητής</label>` : ''}
       ${!isNew ? `<label class="check"><input type="checkbox" name="active" ${m.status === 'active' ? 'checked' : ''} ${m.user_id === st.user.id ? 'disabled' : ''}>Ενεργό</label>` : ''}</div>
     ${isNew ? '<p class="small muted">Το μέλος φτιάχνει λογαριασμό με το ίδιο email και συνδέεται αυτόματα.</p>' :
-      `<div class="row between" style="margin-bottom:12px">${m.user_id ? '<span class="badge b-ok">Έχει λογαριασμό</span>' : '<span class="badge b-muted">Δεν έχει φτιάξει λογαριασμό ακόμα</span>'}
-        ${m.checkin_code ? `<button type="button" class="btn ghost small" id="showQr">${icon('qr', 'sm')}QR check-in</button>` : ''}</div>`}
+      `<div class="row between" style="margin-bottom:12px">${m.user_id ? '<span class="badge b-ok">Έχει λογαριασμό</span>' : '<span class="badge b-muted">Δεν έχει φτιάξει λογαριασμό ακόμα</span>'}</div>`}
     <button class="btn block">${isNew ? 'Προσθήκη' : 'Αποθήκευση'}</button></form>`, (el, close) => {
-    $('#readCard', el).onclick = async () => {
-      const inp = $('[name=rfid_tag]', el);
-      if (nfcSupported()) {
-        try { toast('Ακουμπήστε την κάρτα στο πίσω μέρος της συσκευής');
-          const stop = await readNfc(serial => { inp.value = serial; toast('Διαβάστηκε: ' + serial); stop(); }); } catch (e) { toast('NFC: ' + e.message, true); }
-      } else { inp.value = ''; inp.focus(); toast('Περάστε την κάρτα στον USB αναγνώστη'); }
-    };
-    const sq = $('#showQr', el);
-    if (sq) sq.onclick = () => sheet('QR check-in · ' + m.full_name, `<div class="center">${qrSvg('OGYM:' + m.checkin_code, 260)}
-      <p class="muted small">Για αθλητές χωρίς κινητό: εκτυπώστε το και δείξτε το στην κάμερα check-in.</p>
-      <button class="btn secondary" onclick="window.print()">Εκτύπωση</button></div>`);
     $('#mf', el).onsubmit = async e => {
       e.preventDefault(); const f = e.target;
       const row = { full_name: f.full_name.value.trim(), phone: f.phone.value || null, goal: f.goal.value || null,
-        coach_id: f.coach_id.value || null, rfid_tag: f.rfid_tag.value.trim() || null, is_athlete: f.is_athlete.checked };
+        coach_id: f.coach_id.value || null, is_athlete: f.is_athlete.checked };
       if (owner) row.is_coach = f.is_coach.checked;
       try {
         if (isNew) await q(sb.from('gym_members').insert({ ...row, gym_id: st.cur.gym_id, email: f.email.value.trim() }));
@@ -809,7 +782,7 @@ routes.members = async view => {
       <div class="grow" style="min-width:0"><b>${esc(m.full_name)}</b><div class="small muted ellipsis">${esc(m.email)}</div>
       <div class="row" style="gap:4px;margin-top:4px">${m.is_owner ? '<span class="badge b-brand">Ιδιοκτήτης</span>' : ''}${m.is_coach ? '<span class="badge b-info">Προπονητής</span>' : ''}
         ${m.is_athlete ? '<span class="badge b-muted">Αθλητής</span>' : ''}${!m.user_id ? '<span class="badge b-warn">χωρίς λογαριασμό</span>' : ''}
-        ${m.rfid_tag ? `<span class="badge b-muted">${icon('card', 'sm')}</span>` : ''}</div></div>${icon('right', 'sm')}</button>`).join('')
+</div></div>${icon('right', 'sm')}</button>`).join('')
       || '<div class="card empty">Κανένα μέλος</div>';
     $$('[data-id]').forEach(b => b.onclick = () => memberSheet(ms.find(m => m.id === b.dataset.id), () => route()));
   };
@@ -1159,113 +1132,61 @@ routes.progress = async view => {
 // =====================================================================
 // Check-in: QR με κάμερα, κάρτα NFC (κινητό/tablet Android), USB RFID, χειροκίνητα
 // =====================================================================
-const METHOD_LBL = { rfid: 'κάρτα', nfc: 'NFC', qr: 'QR', manual: 'χειροκ.', workout: 'προπόνηση', class: 'τμήμα' };
+const METHOD_LBL = { rfid: 'κάρτα', nfc: 'κάρτα', qr: 'QR', manual: 'χωρίς τμήμα', workout: 'προπόνηση', class: 'τμήμα' };
 const hhmm = t => new Date(t).toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit', hour12: false });
 const dayRange = d => { const from = new Date(d + 'T00:00:00'); return [from.toISOString(), new Date(from.getTime() + 864e5).toISOString()]; };
 
-// Check-in σε μία οθόνη: QR · Κάρτα (RFID/NFC) · Τμήμα · Όνομα
+// Παρουσίες: «Τμήμα» (όσοι έκλεισαν θέση) ή «Όλοι» (όλοι οι αθλητές, για όσους έρχονται χωρίς κράτηση)
 routes.checkin = async (view, arg) => {
-  const g = st.cur.gym_id, MODES = [['qr', 'QR', 'qr'], ['card', 'Κάρτα', 'nfc'], ['class', 'Τμήμα', 'cal'], ['name', 'Όνομα', 'search']];
+  const g = st.cur.gym_id, MODES = [['class', 'Τμήμα', 'cal'], ['all', 'Όλοι', 'users']];
   const [members, subs] = await Promise.all([
-    q(sb.from('gym_members').select('id, full_name, checkin_code, is_athlete').eq('gym_id', g).eq('status', 'active').order('full_name')),
+    q(sb.from('gym_members').select('id, full_name, is_athlete').eq('gym_id', g).eq('status', 'active').order('full_name')),
     q(sb.rpc('sub_status', { p_gym: g }))]);
   const names = Object.fromEntries(members.map(m => [m.id, m.full_name])), SS = Object.fromEntries(subs.map(x => [x.member_id, x]));
   const subBadge = id => { const x = SS[id]; return x && x.status !== 'active' ? `<span class="badge ${SUB[x.status][0]}">${SUB[x.status][1]}</span>` : ''; };
-  let mode = MODES.some(m => m[0] === arg) ? arg : (store.get('ci_mode') || 'qr');
-  let facing = store.get('cam_facing') || 'user', lastCode = '', lastAt = 0, busy = false, resetT = null, today = [];
-  let selSession = null, day = todayISO(), search = '';
+  let mode = MODES.some(m => m[0] === arg) ? arg : (MODES.some(m => m[0] === store.get('att_mode')) ? store.get('att_mode') : 'class');
+  let resetT = null, today = [], selSession = null, day = todayISO(), search = '';
 
   view.innerHTML = `
-    <h1>Check-in</h1>
+    <h1>Παρουσίες</h1>
     <div class="seg ci-modes" id="modes">${MODES.map(([k, l, i]) => `<button data-mode="${k}">${icon(i, 'sm')}<span>${l}</span></button>`).join('')}</div>
     <div class="card ci-result" id="result"></div>
     <div id="panel"></div>
     <div id="recent"></div>`;
 
   const idle = () => { const el = $('#result'); if (!el) return; el.className = 'card ci-result idle';
-    el.innerHTML = `${icon('scan')}<span>${mode === 'qr' ? 'Δείξτε το QR της κάρτας μέλους' : mode === 'card' ? 'Περάστε την κάρτα στον αναγνώστη' :
-      mode === 'class' ? 'Πατήστε ✓ σε όποιον ήρθε' : 'Πατήστε το όνομα για παρών / απών'}</span>`; };
+    el.innerHTML = `${icon(mode === 'class' ? 'cal' : 'users')}<span>${mode === 'class' ? 'Διαλέξτε τμήμα και πατήστε ✓ σε όποιον ήρθε'
+      : 'Πατήστε το όνομα για να σημειωθεί παρών. Ξαναπατήστε για αναίρεση'}</span>`; };
   async function loadToday() {
     const [f, t] = dayRange(todayISO());
     today = await q(sb.from('attendance').select('id, member_id, checked_in_at, method').eq('gym_id', g).gte('checked_in_at', f).lt('checked_in_at', t));
   }
   const drawRecent = () => {
     const el = $('#recent'); if (!el) return;
-    if (mode === 'name') { el.innerHTML = ''; return; }
+    if (mode === 'all') { el.innerHTML = ''; return; }
     const xs = today.slice().sort((a, b) => b.checked_in_at.localeCompare(a.checked_in_at));
-    el.innerHTML = `<h2>Σήμερα · ${new Set(xs.map(x => x.member_id)).size} check-in</h2><div class="card" style="padding:4px 14px">${xs.slice(0, 30).map((x, i) =>
+    el.innerHTML = `<h2>Ήρθαν σήμερα: ${new Set(xs.map(x => x.member_id)).size}</h2><div class="card" style="padding:4px 14px">${xs.slice(0, 40).map((x, i) =>
       `<div class="row nowrap" style="padding:8px 0;${i ? 'border-top:1px solid var(--line)' : ''}">${avatar(names[x.member_id] || '?')}
         <b class="grow ellipsis">${esc(names[x.member_id] || '')}</b><span class="small muted nowrap">${hhmm(x.checked_in_at)} · ${METHOD_LBL[x.method] || ''}</span></div>`).join('')
-      || '<div class="empty">Κανένα check-in ακόμα σήμερα</div>'}</div>`;
+      || '<div class="empty">Κανείς ακόμα σήμερα</div>'}</div>`;
   };
 
-  async function doCheckin(code, method) {
-    if (busy || !code) return null;
-    if (code === lastCode && Date.now() - lastAt < 6000) return null;
-    busy = true; lastCode = code; lastAt = Date.now();
+  // Σημείωση παρουσίας (σήμερα) με ένδειξη συνδρομής
+  async function markPresent(id, method) {
     try {
-      const r = await q(sb.rpc('checkin', { p_gym: g, p_code: code, p_method: method }));
+      const r = await q(sb.rpc('checkin', { p_gym: g, p_code: id, p_method: method }));
       const [cls, lbl] = SUB[r.status] || SUB.none, bad = ['expired', 'none'].includes(r.status) && r.is_athlete;
-      beep(!bad); if (navigator.vibrate) navigator.vibrate(bad ? [200, 100, 200] : 60);
+      beep(!bad); if (navigator.vibrate) navigator.vibrate(bad ? [200, 100, 200] : 40);
       if (!r.already) today.push({ member_id: r.member_id, checked_in_at: new Date().toISOString(), method });
       const el = $('#result'); el.className = 'card ci-result ' + (bad ? 'bad' : 'ok');
       el.innerHTML = `${avatar(r.name, 'lg')}<div class="grow"><b class="nm">${esc(r.name)}</b>
-        <div>${r.already ? 'Έχει ήδη κάνει check-in σήμερα' : bad ? 'Παρακαλούμε περάστε από τη γραμματεία' : 'Καλή προπόνηση! 💪'}</div>
+        <div>${r.already ? 'Είχε ήδη σημειωθεί σήμερα' : bad ? 'Παρών · να περάσει από τη γραμματεία για τη συνδρομή' : 'Παρών ✓'}</div>
         ${r.is_athlete ? `<div class="small" style="margin-top:4px"><span class="badge ${cls}">${lbl}</span> <span class="muted">${esc(subLine(r))}</span></div>` : ''}</div>`;
-      clearTimeout(resetT); resetT = setTimeout(idle, 7000);
+      clearTimeout(resetT); resetT = setTimeout(idle, 6000);
       drawRecent();
       return r;
-    } catch { beep(false); return null; } finally { busy = false; }
+    } catch { beep(false); return null; }
   }
-
-  // ---------- QR ----------
-  const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true });
-  const detector = ('BarcodeDetector' in window) ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
-  let scanT = null;
-  async function startCam() {
-    stopCam();
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 1280 } }, audio: false });
-      st.stream = stream; const v = $('#vid'); if (!v) { stopCam(); return; } v.srcObject = stream; await v.play();
-      v.style.transform = facing === 'user' ? 'scaleX(-1)' : '';
-      $('#camMsg').style.display = 'none'; $('#camBtn').innerHTML = `${icon('x', 'sm')}Διακοπή`;
-      scanT = setInterval(scan, 300); st.timers.push(scanT); store.set('cam_auto', '1');
-    } catch (e) {
-      const m = $('#camMsg'); if (!m) return; m.style.display = 'grid';
-      m.innerHTML = `<div><p>Δεν ήταν δυνατή η πρόσβαση στην κάμερα.</p><p class="small">${esc(e.message)}</p></div>`;
-    }
-  }
-  function stopCam() {
-    if (scanT) clearInterval(scanT); scanT = null;
-    if (st.stream) { st.stream.getTracks().forEach(t => t.stop()); st.stream = null; }
-    const b = $('#camBtn'); if (b) b.innerHTML = `${icon('camera', 'sm')}Κάμερα`;
-    const m = $('#camMsg'); if (m) m.style.display = 'grid';
-  }
-  async function scan() {
-    const v = $('#vid'); if (!v || !v.videoWidth || busy) return;
-    try {
-      let txt = null;
-      if (detector) { const r = await detector.detect(v); txt = r[0]?.rawValue || null; }
-      else if (window.jsQR) {
-        const w = 480, h = Math.round(v.videoHeight * w / v.videoWidth); canvas.width = w; canvas.height = h;
-        ctx.drawImage(v, 0, 0, w, h); const r = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' });
-        txt = r?.data || null;
-      }
-      if (txt) doCheckin(txt.trim(), 'qr');
-    } catch {}
-  }
-  st.cleanup.push(stopCam);
-
-  // ---------- USB αναγνώστης (πληκτρολόγιο): ενεργός σε όλους τους τρόπους ----------
-  let buf = '', lastKey = 0;
-  const onKey = e => {
-    if (e.target.matches('input, textarea, select')) return;
-    const now = Date.now(); if (now - lastKey > 120) buf = ''; lastKey = now;
-    if (e.key === 'Enter') { if (buf.length >= 4) doCheckin(buf, 'rfid'); buf = ''; return; }
-    if (e.key.length === 1) buf += e.key;
-  };
-  document.addEventListener('keydown', onKey); st.cleanup.push(() => document.removeEventListener('keydown', onKey));
-  let nfcStop = null; st.cleanup.push(() => nfcStop && nfcStop());
 
   // ---------- Τμήμα ----------
   async function drawClass() {
@@ -1276,7 +1197,8 @@ routes.checkin = async (view, arg) => {
       selSession = cand?.session_id || null;
     }
     const P = $('#panel'); if (!P || mode !== 'class') return;
-    if (!live.length) { P.innerHTML = `<div class="card empty">${icon('cal')}<p>Κανένα τμήμα σήμερα.</p><a class="btn secondary small" href="#/classes">Πρόγραμμα τμημάτων</a></div>`; return; }
+    if (!live.length) { P.innerHTML = `<div class="card empty">${icon('cal')}<p>Κανένα τμήμα σήμερα.</p>
+      <p class="small">Για όσους ήρθαν χωρίς τμήμα, πατήστε «Όλοι».</p><a class="btn secondary small" href="#/classes">Πρόγραμμα τμημάτων</a></div>`; return; }
     const cur = live.find(x => x.session_id === selSession);
     const bk = await q(sb.from('bookings').select('id, member_id, status, created_at').eq('session_id', selSession).order('created_at'));
     const present = new Set(today.map(x => x.member_id));
@@ -1285,23 +1207,24 @@ routes.checkin = async (view, arg) => {
         <b>${hhmm(x.starts_at)}</b> ${esc(x.name)} <span class="badge b-muted">${x.booked}/${x.capacity}</span></button>`).join('')}</div>
       <div class="card" style="padding:4px 14px">
         <div class="row between nowrap" style="padding:10px 0"><div><b>${esc(cur.name)}</b> <span class="muted small">${hhmm(cur.starts_at)}–${hhmm(cur.ends_at)}${cur.coach_name ? ' · ' + esc(cur.coach_name) : ''}</span></div>
-          <button class="btn ghost small" id="addB">${icon('plus', 'sm')}Αθλητής</button></div>
+          <button class="btn ghost small" id="addB">${icon('plus', 'sm')}Ήρθε χωρίς κράτηση</button></div>
         ${rows.map(b => { const ok = b.status === 'attended' || (b.status === 'booked' && present.has(b.member_id)), wl = b.status === 'waitlist';
           return `<div class="row nowrap ci-row" style="border-top:1px solid var(--line);${wl ? 'opacity:.6' : ''}">${avatar(names[b.member_id] || '?')}
             <div class="grow"><b>${esc(names[b.member_id] || '')}</b><div class="small">${wl ? '<span class="badge b-muted">αναμονή</span> ' : ''}${b.status === 'no_show' ? '<span class="badge b-bad">δεν ήρθε</span> ' : ''}${subBadge(b.member_id)}</div></div>
             ${wl ? '' : `<button class="tick ${ok ? 'on' : ''}" data-bk="${b.id}" data-mem="${b.member_id}" aria-label="Ήρθε">${icon('check')}</button>`}</div>`; }).join('')
-          || '<div class="empty">Καμία κράτηση. Προσθέστε αθλητή.</div>'}</div>`;
+          || '<div class="empty">Καμία κράτηση σε αυτό το τμήμα.</div>'}</div>`;
     $$('[data-ses]', P).forEach(b => b.onclick = () => { selSession = b.dataset.ses; drawClass(); });
     $$('[data-bk]', P).forEach(b => b.onclick = async () => {
       if (b.classList.contains('on')) { await q(sb.rpc('mark_booking', { p_booking: b.dataset.bk, p_status: 'booked' })); b.classList.remove('on'); return; }
-      const m = members.find(x => x.id === b.dataset.mem); lastCode = '';
-      const r = await doCheckin(m.checkin_code || m.id, 'class');
+      const r = await markPresent(b.dataset.mem, 'class');
       if (r && r.already) await q(sb.rpc('mark_booking', { p_booking: b.dataset.bk, p_status: 'attended' }));
-      b.classList.add('on');
+      if (r) b.classList.add('on');
     });
-    $('#addB').onclick = () => pickMember('Προσθήκη στο τμήμα', async m => {
+    $('#addB').onclick = () => pickMember('Ήρθε χωρίς κράτηση', async m => {
       try { const r = await q(sb.rpc('book_session', { p_session: selSession, p_member: m.id }));
-        toast(r.status === 'waitlist' ? 'Μπήκε σε λίστα αναμονής' : 'Προστέθηκε'); drawClass(); } catch {} });
+        if (r.status === 'waitlist') toast('Το τμήμα είναι γεμάτο: μπήκε σε λίστα αναμονής');
+        else await markPresent(m.id, 'class');
+        drawClass(); } catch {} });
   }
   function pickMember(title, onPick) {
     sheet(title, `<div class="search">${icon('search', 'sm')}<input id="pm" placeholder="Όνομα" autocomplete="off"></div><div id="pml"></div>`, (el, close) => {
@@ -1312,33 +1235,33 @@ routes.checkin = async (view, arg) => {
     });
   }
 
-  // ---------- Όνομα (παρουσίες ημέρας) ----------
-  async function drawName() {
-    const P = $('#panel'); if (!P || mode !== 'name') return;
+  // ---------- Όλοι (παρουσίες ημέρας) ----------
+  async function drawAll() {
+    const P = $('#panel'); if (!P || mode !== 'all') return;
     const [f, t] = dayRange(day);
     const rows = day === todayISO() ? today : await q(sb.from('attendance').select('id, member_id, method, checked_in_at').eq('gym_id', g).gte('checked_in_at', f).lt('checked_in_at', t));
     const present = new Map(rows.map(r => [r.member_id, r])), ath = members.filter(m => m.is_athlete);
     if (!$('#nlist')) {
       P.innerHTML = `<div class="card row between nowrap" style="padding:8px">
-          <button class="icon-btn" id="prev" aria-label="Προηγούμενη">${icon('left')}</button>
+          <button class="icon-btn" id="prev" aria-label="Προηγούμενη ημέρα">${icon('left')}</button>
           <div class="center grow"><div id="dayName" class="small muted"></div>${dateField('day', day)}</div>
-          <button class="icon-btn" id="next" aria-label="Επόμενη">${icon('right')}</button></div>
+          <button class="icon-btn" id="next" aria-label="Επόμενη ημέρα">${icon('right')}</button></div>
         <div class="row between nowrap"><h2 id="cnt" style="margin:8px 0"></h2></div>
-        <div class="search">${icon('search', 'sm')}<input id="q" placeholder="Αναζήτηση" autocomplete="off" value="${esc(search)}"></div>
+        <div class="search">${icon('search', 'sm')}<input id="q" placeholder="Αναζήτηση αθλητή" autocomplete="off" value="${esc(search)}"></div>
         <div class="grid cols-4" id="nlist"></div>`;
-      bindDate('day', v => { day = v > todayISO() ? todayISO() : v; drawName(); });
-      $('#prev').onclick = () => { day = addDays(day, -1); drawName(); };
-      $('#next').onclick = () => { if (day < todayISO()) { day = addDays(day, 1); drawName(); } };
-      $('#q').oninput = e => { search = e.target.value.toLowerCase(); drawName(); };
+      bindDate('day', v => { day = v > todayISO() ? todayISO() : v; drawAll(); });
+      $('#prev').onclick = () => { day = addDays(day, -1); drawAll(); };
+      $('#next').onclick = () => { if (day < todayISO()) { day = addDays(day, 1); drawAll(); } };
+      $('#q').oninput = e => { search = e.target.value.toLowerCase(); drawAll(); };
     }
     $('#dayName').textContent = day === todayISO() ? 'Σήμερα' : DAYS[new Date(day + 'T12:00:00').getDay()];
     $('[data-show="day"]').textContent = fmtDate(day); $('#day').value = day; $('#next').disabled = day >= todayISO();
-    $('#cnt').textContent = `${present.size} από ${ath.length} παρόντες`;
+    $('#cnt').textContent = `Παρόντες: ${present.size} από ${ath.length}`;
     $('#nlist').innerHTML = ath.filter(a => a.full_name.toLowerCase().includes(search)).map(a => { const r = present.get(a.id);
       return `<button class="card tap att ${r ? 'on' : ''}" data-m="${a.id}">
         ${r ? `<span class="att-ok">${icon('check', 'sm')}</span>` : ''}
         <div style="display:flex;justify-content:center">${avatar(a.full_name)}</div><b class="small" style="display:block;margin-top:6px">${esc(a.full_name)}</b>
-        <div class="tiny muted">${r ? hhmm(r.checked_in_at) + (r.method !== 'manual' ? ' · ' + (METHOD_LBL[r.method] || '') : '') : 'απών'}</div>
+        <div class="tiny muted">${r ? hhmm(r.checked_in_at) + ' · ' + (METHOD_LBL[r.method] || '') : '—'}</div>
         ${subBadge(a.id)}</button>`; }).join('');
     $$('[data-m]', P).forEach(b => b.onclick = async () => {
       const id = b.dataset.m;
@@ -1346,49 +1269,26 @@ routes.checkin = async (view, arg) => {
         confirmSheet('Αναίρεση παρουσίας', `${names[id]}: να σβηστεί η παρουσία της ${fmtDate(day)};`, 'Αναίρεση', async () => {
           await q(sb.from('attendance').delete().eq('member_id', id).gte('checked_in_at', f).lt('checked_in_at', t));
           if (day === todayISO()) today = today.filter(x => x.member_id !== id);
-          drawName(); }, true);
+          drawAll(); }, true);
         return;
       }
-      if (day === todayISO()) { lastCode = ''; await doCheckin(members.find(m => m.id === id).checkin_code || id, 'manual'); }
+      if (day === todayISO()) await markPresent(id, 'manual');
       else await q(sb.from('attendance').insert({ gym_id: g, member_id: id, checked_in_at: new Date(day + 'T12:00:00').toISOString(), method: 'manual' }));
-      drawName();
+      drawAll();
     });
   }
 
-  // ---------- Εναλλαγή τρόπου ----------
-  function setMode(k, user) {
-    mode = k; store.set('ci_mode', k); stopCam();
-    if (nfcStop) { nfcStop(); nfcStop = null; }
+  function setMode(k) {
+    mode = k; store.set('att_mode', k);
     $$('#modes button').forEach(b => b.classList.toggle('active', b.dataset.mode === k));
     history.replaceState(null, '', '#/checkin/' + k);
-    const P = $('#panel');
-    if (k === 'qr') {
-      P.innerHTML = `<div class="card" style="padding:10px">
-        <div class="cam"><video id="vid" playsinline muted style="${facing === 'user' ? 'transform:scaleX(-1)' : ''}"></video><div class="cam-frame"></div>
-          <div id="camMsg" class="cam-msg"><div>${icon('qr')}<p>Πατήστε «Κάμερα» για σάρωση QR</p></div></div></div>
-        <div class="row nowrap" style="margin-top:10px"><button class="btn grow" id="camBtn">${icon('camera', 'sm')}Κάμερα</button>
-          <button class="btn secondary" id="flipBtn" title="Αλλαγή κάμερας" aria-label="Αλλαγή κάμερας">${icon('flip', 'sm')}</button></div></div>`;
-      $('#camBtn').onclick = () => st.stream ? stopCam() : startCam();
-      $('#flipBtn').onclick = () => { facing = facing === 'user' ? 'environment' : 'user'; store.set('cam_facing', facing); if (st.stream) startCam(); };
-      if (user || store.get('cam_auto') === '1') startCam();
-    } else if (k === 'card') {
-      P.innerHTML = `<div class="card center ci-card">${icon('nfc')}<h3>Περάστε την κάρτα</h3>
-        <p class="small muted">Ο USB αναγνώστης είναι πάντα ενεργός σε αυτή την οθόνη.</p>
-        ${nfcSupported() ? `<button class="btn secondary" id="nfcBtn">${icon('nfc', 'sm')}Ανάγνωση NFC από το κινητό</button>` : '<p class="tiny muted">Το NFC κινητού υποστηρίζεται μόνο σε Chrome για Android.</p>'}
-        <form id="cf" class="row nowrap" style="margin-top:14px"><input name="c" placeholder="ή πληκτρολογήστε τον κωδικό κάρτας" autocomplete="off" class="grow"><button class="btn small">OK</button></form></div>`;
-      const nb = $('#nfcBtn');
-      if (nb) nb.onclick = async () => {
-        try { nfcStop = await readNfc(serial => doCheckin(serial, 'nfc'));
-          nb.classList.remove('secondary'); nb.innerHTML = `${icon('nfc', 'sm')}NFC ενεργό: ακουμπήστε κάρτα`; }
-        catch (e) { toast('NFC: ' + e.message, true); } };
-      $('#cf').onsubmit = e => { e.preventDefault(); const v = e.target.c.value.trim(); e.target.c.value = ''; lastCode = ''; if (v) doCheckin(v, 'rfid'); };
-    } else if (k === 'class') { P.innerHTML = '<p class="muted">Φόρτωση…</p>'; drawClass(); }
-    else { P.innerHTML = ''; drawName(); }
+    $('#panel').innerHTML = k === 'class' ? '<p class="muted">Φόρτωση…</p>' : '';
+    k === 'class' ? drawClass() : drawAll();
     idle(); drawRecent();
   }
-  $$('#modes button').forEach(b => b.onclick = () => setMode(b.dataset.mode, true));
+  $$('#modes button').forEach(b => b.onclick = () => setMode(b.dataset.mode));
   await loadToday();
-  setMode(mode, false);
+  setMode(mode);
 };
 
 // =====================================================================
@@ -1783,7 +1683,7 @@ const SUBS = {
 routes.card = async view => {
   const id = st.cur.member_id;
   const [me, ms, ps] = await Promise.all([
-    q(sb.from('gym_members').select('full_name, checkin_code').eq('id', id).single()),
+    q(sb.from('gym_members').select('full_name').eq('id', id).single()),
     q(sb.from('memberships').select('*').eq('member_id', id).order('start_date', { ascending: false })),
     q(sb.from('payments').select('*').eq('member_id', id).order('paid_on', { ascending: false }))
   ]);
@@ -1792,12 +1692,9 @@ routes.card = async view => {
   const left = cur?.end_date ? Math.round((new Date(cur.end_date + 'T12:00:00') - new Date(todayISO() + 'T12:00:00')) / 864e5) : null;
   const status = !cur ? 'none' : cur.status === 'frozen' ? 'frozen' : !valid ? 'expired'
     : ((left != null && left <= 7) || (cur.kind === 'visits' && cur.visits_total - cur.visits_used <= 2)) ? 'expiring' : 'active';
-  view.innerHTML = `<h1>Η κάρτα μου</h1>
-    <div class="card center" style="background:var(--brand-2);color:#fff;border:0">
-      <div class="row nowrap" style="justify-content:center;margin-bottom:10px"><b>${esc(st.cur.gym_name)}</b></div>
-      <div style="background:#fff;border-radius:16px;padding:12px;display:inline-block">${me.checkin_code ? qrSvg('OGYM:' + me.checkin_code, 230) : ''}</div>
-      <h2 style="margin:12px 0 2px;color:#fff">${esc(me.full_name)}</h2>
-      <div class="small" style="opacity:.75">Δείξτε το QR στην κάμερα check-in του γυμναστηρίου</div></div>
+  view.innerHTML = `<h1>Η συνδρομή μου</h1>
+    <div class="card list-item" style="background:var(--brand-2);color:#fff;border:0">${avatar(me.full_name, 'lg')}
+      <div class="grow"><h2 style="margin:0;color:#fff">${esc(me.full_name)}</h2><div class="small" style="opacity:.75">${esc(st.cur.gym_name)}</div></div></div>
     <div class="card"><div class="row between"><b>Συνδρομή</b><span class="badge ${SUB[status][0]}">${SUB[status][1]}</span></div>
       ${cur ? `<h2 style="margin:10px 0 4px">${esc(cur.plan_name)}</h2>
         ${cur.kind === 'visits' ? `<div class="row between small"><span>Επισκέψεις</span><b>${cur.visits_total - cur.visits_used} από ${cur.visits_total}</b></div>
