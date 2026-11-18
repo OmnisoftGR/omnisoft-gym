@@ -310,7 +310,7 @@ button.stick-btn { padding: 0; border: 0; background: none; cursor: zoom-in; bor
 .ci-modes button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; }
 .ci-modes button .i { width: 20px; height: 20px; }
 .ci-result { display: flex; align-items: center; gap: 14px; min-height: 86px; border: 2px solid var(--line); transition: border-color .2s, background .2s; }
-.ci-result.idle { color: var(--muted); justify-content: center; }
+.ci-result.idle { color: var(--muted); justify-content: center; min-height: 0; padding: 6px 10px; border-width: 1px; border-style: dashed; font-size: 13px; margin-bottom: 8px; }
 .ci-result.ok { border-color: var(--ok); background: var(--ok-soft); }
 .ci-result.bad { border-color: var(--bad); background: var(--bad-soft); }
 .ci-result .nm { font-size: 20px; display: block; }
@@ -364,3 +364,25 @@ h2.grp { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; marg
 .help-body ul, .help-body ol { padding-left: 20px; margin: 0 0 8px; }
 .help-body .badge { font-size: 11px; }
 @media (max-width: 480px) { .hide-sm { display: none; } }
+
+/* ---------- Σχόλια μέλους ---------- */
+.note-box { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; padding: 8px 10px; border-radius: 12px;
+  background: var(--warn-soft); border: 1px solid var(--warn-line); font-size: 14px; white-space: pre-line; }
+.note-box .i { flex: none; margin-top: 2px; color: var(--warn); }
+
+/* ---------- Εκτύπωση πακέτων ---------- */
+@media print {
+  .plpage { width: 170mm; margin: 0 auto; padding: 18mm 0 0; font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  .plhead { display: flex; align-items: center; gap: 6mm; padding-bottom: 5mm; border-bottom: .5mm solid #000; }
+  .plhead img { height: 20mm; width: auto; }
+  .plgym { font-size: 22pt; font-weight: 800; letter-spacing: .3px; }
+  .plcontact { font-size: 10pt; margin-top: 1.5mm; }
+  .pltitle { font-size: 18pt; margin: 9mm 0 4mm; }
+  .plsub { font-size: 14pt; margin: 9mm 0 3mm; }
+  .pltable { width: 100%; border-collapse: collapse; font-size: 12pt; }
+  .pltable td { padding: 3.5mm 2mm; border-bottom: .25mm solid #999; vertical-align: middle; }
+  .pltable small { display: block; font-size: 9.5pt; margin-top: 1mm; color: #444 !important; }
+  .pltable .plprice { text-align: right; font-size: 16pt; font-weight: 800; white-space: nowrap; width: 35mm; }
+  .plnote { margin-top: 9mm; padding: 4mm; border: .25mm solid #555; border-radius: 2mm; font-size: 11pt; white-space: pre-line; }
+  .plfoot { margin-top: 10mm; font-size: 8.5pt; color: #555 !important; }
+}

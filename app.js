@@ -312,7 +312,8 @@ const HELP = {
   programs: ['Πρότυπα προγράμματα', `<p>Εδώ βρίσκονται μόνο τα <b>πρότυπα</b>: έτοιμα προγράμματα, π.χ. «Αρχάριοι · Δύναμη», που τα αντιγράφετε σε αθλητές.</p>
     <ul><li>Τα προγράμματα κάθε αθλητή είναι στη σελίδα του (Αθλητές → αθλητής → «Προγράμματα»).</li>
     <li>Πρότυπο φτιάχνετε με «+ Πρότυπο» ή από ένα πρόγραμμα αθλητή με «Ως πρότυπο».</li>
-    <li>Αλλαγή σε πρότυπο δεν επηρεάζει τα προγράμματα που έχουν ήδη αντιγραφεί.</li></ul>`],
+    <li>Αλλαγή σε πρότυπο δεν επηρεάζει τα προγράμματα που έχουν ήδη αντιγραφεί.</li>
+    <li>Πρότυπο που δεν χρησιμοποιείτε πια: ανοίξτε το → <b>Απενεργοποίηση</b>. Κρύβεται από τη λίστα και την αντιγραφή, και φαίνεται στο φίλτρο «Ανενεργά». Ή <b>Διαγραφή</b> οριστικά.</li></ul>`],
   program: ['Επεξεργασία προγράμματος', `<h4>Γενικά</h4><ul><li><b>Σύνολο προπονήσεων:</b> πόσες φορές θα γίνει το πρόγραμμα. Αν ο αθλητής χάσει μέρες, συνεχίζει από εκεί που έμεινε.
       Στη σελίδα των αθλητών φαίνεται π.χ. 12/24.</li>
     <li><b>Αρίθμηση:</b> κάθε αθλητής έχει Πρόγραμμα 1, 2, 3… Κάθε πρόγραμμα είναι μία λίστα ασκήσεων. Όταν τελειώσει, φτιάχνετε το επόμενο και παίρνει αυτόματα τον επόμενο αριθμό.</li>
@@ -323,7 +324,8 @@ const HELP = {
       Αν δυσκολευτεί δύο φορές, προτείνει λιγότερα. Μετά από απουσία κρατά τα ίδια ή κατεβάζει λίγο.</li>
     <li><b>«Σταθερά»:</b> προτείνει πάντα τα κιλά που βάλατε. Χρήσιμο για τεχνική, αποκατάσταση ή μηχανήματα με λίγα βάρη.</li>
     <li>Πατήστε το σκίτσο για να δείτε την κίνηση. Με ↑ ↓ αλλάζετε τη σειρά, με ✕ αφαιρείτε την άσκηση.</li></ul>
-    <h4>Εκτύπωση</h4><p>Φύλλο A4, μία σελίδα ανά ημέρα, με κουτιά για σετ × επαναλήψεις και κιλά. Για αθλητές που θέλουν το πρόγραμμα σε χαρτί.</p>`],
+    <h4>Διαγραφή</h4><p>Κάτω κάτω στη σελίδα. Πρόγραμμα αθλητή διαγράφεται μόνο αν δεν έχει γίνει καμία προπόνηση, π.χ. αν φτιάχτηκε κατά λάθος. Τότε ενεργό γίνεται ξανά το προηγούμενο.</p>
+    <h4>Εκτύπωση</h4><p>Φύλλο A4, με κουτιά για σετ × επαναλήψεις και κιλά. Για αθλητές που θέλουν το πρόγραμμα σε χαρτί.</p>`],
   workout: ['Καταγραφή προπόνησης', `<h4>Βήμα βήμα</h4><ol>
     <li>Η εφαρμογή ανοίγει την επόμενη ημέρα του προγράμματος. Αλλάζετε ημέρα από τα κουμπιά πάνω.</li>
     <li>Σε κάθε άσκηση ρυθμίστε κιλά και επαναλήψεις με τα <b>− / +</b>. Τα κιλά είναι ήδη συμπληρωμένα με την πρόταση της εφαρμογής.</li>
@@ -364,19 +366,39 @@ const HELP = {
     <li>Αν είναι γεμάτο, πατήστε <b>«Λίστα αναμονής»</b>. Η θέση σας κλείνει αυτόματα μόλις ακυρώσει κάποιος.</li>
     <li>Αν δεν μπορείτε να έρθετε, πατήστε <b>«Ακύρωση»</b> για να πάρει τη θέση άλλος. Το όριο ακύρωσης φαίνεται κάτω στη σελίδα.</li>
     <li>Οι κρατήσεις σας εμφανίζονται πάνω πάνω, στο «Οι κρατήσεις μου».</li></ul>`],
-  subs: ['Συνδρομές', `<ul><li><b>Κατάσταση:</b> ποιοι έχουν ενεργή, ποιων λήγει σύντομα, ποιων έληξε, και ποιοι χρωστούν.</li>
-    <li><b>Νέα συνδρομή:</b> διαλέξτε πακέτο (μηνιαίο ή επισκέψεων). Αν έχει ήδη ενεργή, η νέα ξεκινά όταν λήξει η τρέχουσα.</li>
-    <li><b>Πάγωμα:</b> για τραυματισμό ή διακοπές. Η λήξη μετατίθεται όσες ημέρες κράτησε το πάγωμα.</li>
-    <li><b>Πληρωμές:</b> η εφαρμογή τις καταγράφει μόνο. Η απόδειξη εκδίδεται από το σύστημα τιμολόγησης του γυμναστηρίου.</li>
-    <li>Οι προπονητές βλέπουν μόνο αν η συνδρομή είναι ενεργή ή ληγμένη, όχι ποσά.</li></ul>`],
+  subs: ['Συνδρομές · πώς δουλεύουν', `
+    <p>Εδώ ο ιδιοκτήτης βλέπει ποιος έχει πληρώσει και μέχρι πότε. Η λογική είναι απλή: <b>πουλάτε ένα πακέτο</b> στον αθλητή (συνδρομή)
+      και <b>καταγράφετε τι πλήρωσε</b> (πληρωμή). Η διαφορά τους είναι η οφειλή.</p>
+    <h4>1. Πακέτα (κάντε τα πρώτα)</h4><ul>
+    <li>Ο τιμοκατάλογός σας: π.χ. «Μηνιαίο · 50 €» (χρονικό) ή «10 επισκέψεις · 70 €».</li>
+    <li>Τα στήνετε μία φορά. Με το 🖨 <b>Εκτύπωση</b> βγαίνει σελίδα A4 με τα πακέτα και τα στοιχεία του γυμναστηρίου, για να τη δίνετε σε αθλητές.</li></ul>
+    <h4>2. Κατάσταση</h4><ul>
+    <li>Μία γραμμή ανά αθλητή με την ένδειξη: <span class="badge b-ok">Ενεργή</span> <span class="badge b-warn">Λήγει</span>
+      <span class="badge b-bad">Ληγμένη</span> <span class="badge b-muted">Χωρίς</span> <span class="badge b-info">Πάγωμα</span>, και κόκκινο «οφειλή» αν χρωστάει.</li>
+    <li>Τα κουτιά πάνω: εισπράξεις του μήνα, συνολικές οφειλές, πόσοι έχουν ενεργή και πόσοι όχι. Τα φίλτρα δείχνουν μόνο μία ομάδα, π.χ. «Λήγουν».</li>
+    <li><b>+ Ανανέωση</b> εμφανίζεται όταν η συνδρομή λήγει ή έληξε. <b>€</b> εμφανίζεται όταν υπάρχει οφειλή.</li>
+    <li>Πατήστε τον αθλητή για όλο το ιστορικό του: συνδρομές, πληρωμές, πάγωμα και ακύρωση.</li></ul>
+    <h4>Συχνές περιπτώσεις</h4><ul>
+    <li><b>Ήρθε να ανανεώσει:</b> + Ανανέωση → διαλέγετε πακέτο → «Πληρώθηκαν τώρα» το ποσό → Καταχώρηση. Αν ανανεώσει πριν τη λήξη, η νέα ξεκινά όταν τελειώσει η τρέχουσα.</li>
+    <li><b>Πλήρωσε τα μισά:</b> στο «Πληρώθηκαν τώρα» γράψτε όσα έδωσε. Τα υπόλοιπα μένουν οφειλή και τα εξοφλεί αργότερα με €.</li>
+    <li><b>Θα πληρώσει αργότερα:</b> «Πληρώθηκαν τώρα» 0. Η συνδρομή ισχύει, αλλά φαίνεται οφειλή.</li>
+    <li><b>Έκπτωση:</b> αλλάξτε την «Τιμή» στη νέα συνδρομή και γράψτε σημείωση, π.χ. «φοιτητής».</li>
+    <li><b>Τραυματισμός ή διακοπές:</b> πατήστε τον αθλητή → Πάγωμα. Όταν επιστρέψει, Ξεπάγωμα: η λήξη μετατίθεται όσες μέρες έλειψε.</li>
+    <li><b>Μεμονωμένη προπόνηση:</b> καταγράφεται από τις Παρουσίες και εμφανίζεται εδώ ως συνδρομή 1 επίσκεψης.</li></ul>
+    <h4>3. Πληρωμές</h4><ul><li>Όλες οι εισπράξεις ανά μήνα και ανά τρόπο (μετρητά, κάρτα, IRIS…). Με τα βελάκια αλλάζετε μήνα.</li>
+    <li>Η εφαρμογή καταγράφει μόνο. Η απόδειξη εκδίδεται από το σύστημα τιμολόγησης του γυμναστηρίου.</li></ul>
+    <p class="small muted">Οι προπονητές δεν βλέπουν αυτή την ενότητα. Βλέπουν μόνο αν η συνδρομή είναι ενεργή ή ληγμένη.</p>`],
   mysub: ['Η συνδρομή μου', `<ul><li>Μέχρι πότε ισχύει η συνδρομή σας ή πόσες επισκέψεις σας απομένουν.</li>
     <li>Οι πληρωμές σας. Αν υπάρχει υπόλοιπο, εμφανίζεται με κόκκινο.</li>
     <li>Για ανανέωση ή πάγωμα επικοινωνήστε με το γυμναστήριο.</li></ul>`],
   members: ['Μέλη', `<h4>Καρτέλες</h4><ul><li><b>Ενεργά:</b> όλοι, αθλητές και προσωπικό.</li><li><b>Αθλητές / Προπονητές:</b> μόνο αυτή η ομάδα.</li>
     <li><b>Χωρίς λογαριασμό:</b> όσοι δεν έχουν μπει ακόμα στην εφαρμογή. Δεν βλέπουν το πρόγραμμά τους στο κινητό, γι' αυτό από εδώ το τυπώνετε σε χαρτί με το 🖨.</li>
     <li><b>Ανενεργά:</b> μέλη που σταμάτησαν. Δεν χρεώνονται και δεν χάνεται το ιστορικό τους.</li></ul>
-    <h4>Νέο μέλος</h4><p>Γράψτε όνομα και email. Το μέλος φτιάχνει λογαριασμό στην αρχική σελίδα της εφαρμογής με <b>το ίδιο email</b> και συνδέεται αυτόματα με το γυμναστήριο.</p>`],
-  exercises: ['Ασκήσεις', `<ul><li><b>Του γυμναστηρίου:</b> οι ασκήσεις που μπορείτε να βάλετε στα προγράμματα. Βγάλτε το ✓ για να κρυφτεί μια άσκηση χωρίς να χαθεί το ιστορικό της.</li>
+    <h4>Νέο μέλος</h4><p>Γράψτε όνομα και email. Το μέλος φτιάχνει λογαριασμό στην αρχική σελίδα της εφαρμογής με <b>το ίδιο email</b> και συνδέεται αυτόματα με το γυμναστήριο.</p>
+    <h4>Σχόλια</h4><p>Ό,τι πρέπει να ξέρει ο προπονητής, π.χ. «έμπειρος», «πρόβλημα στο γόνατο», «έρχεται μόνο βράδυ». Φαίνονται στη λίστα μελών και με πορτοκαλί πλαίσιο στη σελίδα του αθλητή.
+      Ο αθλητής δεν τα βλέπει στην εφαρμογή.</p>`],
+  exercises: ['Ασκήσεις', `<ul><li><b>Του γυμναστηρίου:</b> οι ασκήσεις που μπαίνουν στα προγράμματα. Εμφανίζονται μόνο οι ενεργές· οι υπόλοιπες στο φίλτρο «Ανενεργές».</li>
+    <li>Με το <b>⋯</b> δίπλα σε μια άσκηση: <b>Απενεργοποίηση</b> (κρύβεται, το ιστορικό μένει) ή <b>Διαγραφή</b>. Η διαγραφή γίνεται μόνο αν η άσκηση δεν υπάρχει σε κανένα πρόγραμμα ή προπόνηση.</li>
     <li><b>Βιβλιοθήκη:</b> έτοιμες ασκήσεις με κινούμενο σκίτσο. Πατήστε + για να μπει στο γυμναστήριο.</li>
     <li><b>Νέα:</b> δική σας άσκηση, π.χ. για ένα ειδικό μηχάνημα.</li>
     <li>Πατήστε το σκίτσο για να δείτε την κίνηση.</li>
@@ -384,6 +406,7 @@ const HELP = {
   settings: ['Ρυθμίσεις', `<ul><li><b>Χρέωση εφαρμογής:</b> πόσο κοστίζει ο μήνας. Μετρούν μόνο οι αθλητές που ήρθαν ή προπονήθηκαν έστω μία φορά μέσα στον μήνα.</li>
     <li><b>Συνδρομές:</b> αν ένας αθλητής με ληγμένη συνδρομή απλώς σημειώνεται ή δεν μπορεί να καταγράψει προπόνηση, και πόσες μέρες πριν τη λήξη εμφανίζεται «Λήγει σύντομα».</li>
     <li><b>Κρατήσεις:</b> μέχρι πόσες ώρες πριν ακυρώνει ο αθλητής, πόσες μέρες μπροστά κλείνει θέση, και αν χρειάζεται ενεργή συνδρομή.</li>
+    <li><b>Στοιχεία γυμναστηρίου:</b> διεύθυνση, τηλέφωνο, email και ιστοσελίδα εμφανίζονται στις εκτυπώσεις, π.χ. στα πακέτα συνδρομών.</li>
     <li>Το χρώμα της εφαρμογής το ορίζει η Omnisoft. Φωτεινή ή σκοτεινή εμφάνιση ακολουθεί τη ρύθμιση της συσκευής.</li></ul>`]
 };
 const help = k => `<button type="button" class="help" data-help="${k}" aria-label="Βοήθεια" title="Βοήθεια">?</button>`;
@@ -606,7 +629,9 @@ routes.athlete = async (view, id) => {
   view.innerHTML = `
     <p class="small"><a href="#/athletes" class="row nowrap" style="gap:2px;text-decoration:none">${icon('left', 'sm')}Αθλητές</a></p>
     <div class="card"><div class="list-item">${avatar(m.full_name, 'lg')}<div class="grow">
-      <h1 style="margin:0">${esc(m.full_name)}</h1><div class="muted small">${esc(m.goal || 'Χωρίς στόχο')}</div></div></div>
+      <h1 style="margin:0">${esc(m.full_name)}</h1><div class="muted small">${esc(m.goal || 'Χωρίς στόχο')}</div></div>
+      <button class="icon-btn" id="editM" title="Στοιχεία & σχόλια" aria-label="Στοιχεία και σχόλια">${icon('cog', 'sm')}</button></div>
+      ${m.notes ? `<div class="note-box">${icon('alert', 'sm')}<span>${esc(m.notes)}</span></div>` : ''}
       <div class="kpis" style="margin:14px 0 10px"><div class="kpi"><b>${s0.program_total ? `${s0.program_done}/${s0.program_total}` : '–'}</b><span>προπονήσεις προγράμματος</span></div><div class="kpi"><b class="small" style="font-size:16px">${relDays(s0.days_absent)}</b><span>τελευταία φορά</span></div></div>
       <a class="btn block" href="#/log/${id}">${icon('play', 'sm')}Καταγραφή προπόνησης</a>
       <div class="row nowrap" style="margin-top:8px">
@@ -618,6 +643,7 @@ routes.athlete = async (view, id) => {
     <div class="seg" id="seg"><button data-t="sugg" class="active">Επόμενη προπόνηση</button><button data-t="prog">Πρόοδος</button><button data-t="hist">Ιστορικό</button><button data-t="progs">Προγράμματα</button></div>
     <div id="tabc"></div>`;
   $('#newProg').onclick = () => createProgramFor(id);
+  $('#editM').onclick = () => memberSheet(m, () => route());
   const draw = async () => {
     destroyCharts(); const el = $('#tabc');
     if (tab === 'sugg') el.innerHTML = suggList(sugg);
@@ -720,15 +746,24 @@ async function copyProgram(srcId, athleteId, opts = {}) {
 
 // Ενότητα «Προγράμματα»: μόνο τα πρότυπα (τα προγράμματα αθλητών ανοίγουν από τη σελίδα του αθλητή)
 routes.programs = async view => {
-  const tpl = await q(sb.from('programs').select('id, name, total_sessions, program_days(program_exercises(id))').eq('gym_id', st.cur.gym_id)
-    .eq('is_template', true).eq('active', true).order('name'));
+  const tpl = await q(sb.from('programs').select('id, name, total_sessions, active, program_days(program_exercises(id))').eq('gym_id', st.cur.gym_id)
+    .eq('is_template', true).order('name'));
+  let act = store.get('tpl_act') !== '0';
   view.innerHTML = `
     <div class="head-row"><h1>Πρότυπα προγράμματα ${help('programs')}</h1><button class="btn small" id="newTpl">${icon('plus', 'sm')}Πρότυπο</button></div>
-    <div class="card rows cols">${tpl.map(p => { const n = (p.program_days || []).reduce((a, d) => a + (d.program_exercises || []).length, 0);
+    <div class="chips" id="act"></div><div class="card rows cols" id="tl"></div>`;
+  const draw = () => {
+    const on = tpl.filter(p => p.active).length, xs = tpl.filter(p => p.active === act);
+    $('#act').innerHTML = `<button class="chip ${act ? 'active' : ''}" data-a="1">Ενεργά <span class="badge b-muted">${on}</span></button>
+      <button class="chip ${act ? '' : 'active'}" data-a="0">Ανενεργά <span class="badge b-muted">${tpl.length - on}</span></button>`;
+    $$('#act .chip').forEach(c => c.onclick = () => { act = c.dataset.a === '1'; store.set('tpl_act', act ? '1' : '0'); draw(); });
+    $('#tl').innerHTML = xs.map(p => { const n = (p.program_days || []).reduce((a, d) => a + (d.program_exercises || []).length, 0);
       return `<a class="mrow" style="text-decoration:none;color:inherit" href="#/program/${p.id}">
       <div class="logo" style="background:var(--brand-soft);color:var(--brand);width:34px;height:34px">${icon('clip', 'sm')}</div><div class="grow" style="min-width:0"><b class="ellipsis" style="display:block">${esc(p.name)}</b>
       <div class="muted tiny">${n} ασκήσεις · ${p.total_sessions} προπονήσεις</div></div>${icon('right', 'sm')}</a>`; }).join('') ||
-      '<div class="empty">Κανένα πρότυπο ακόμα. Φτιάξτε ένα για να το αντιγράφετε γρήγορα σε αθλητές.</div>'}</div>`;
+      `<div class="empty">${act ? 'Κανένα πρότυπο ακόμα. Φτιάξτε ένα για να το αντιγράφετε γρήγορα σε αθλητές.' : 'Κανένα ανενεργό πρότυπο'}</div>`;
+  };
+  draw();
   $('#newTpl').onclick = () => sheet('Νέο πρότυπο', `<form id="tf"><div class="field"><label>Όνομα</label><input name="n" required placeholder="π.χ. Αρχάριοι · Δύναμη"></div>
     <div class="field"><label>Σύνολο προπονήσεων</label><input name="t" type="number" min="1" max="200" value="12"></div>
     <button class="btn block">Δημιουργία</button></form>`, (el, close) => {
@@ -807,7 +842,10 @@ routes.program = async (view, programId) => {
             <button class="icon-btn" data-delpe style="color:var(--bad)" title="Αφαίρεση">${icon('x', 'sm')}</button></div>
           <div class="pe-body">${peBody(pe)}</div></div>`).join('')}
         <button class="btn ghost block" data-add="${d.id}" style="margin-top:10px">${icon('plus', 'sm')}Προσθήκη άσκησης</button>
-      </div>`).join('')}`;
+      </div>`).join('')}
+    <div class="row" style="gap:8px;margin-top:4px">
+      ${p.is_template ? `<button class="btn secondary small grow" id="tplAct">${p.active ? 'Απενεργοποίηση προτύπου' : 'Ενεργοποίηση προτύπου'}</button>` : ''}
+      <button class="btn ghost small grow" id="delProg" style="color:var(--bad)">${icon('x', 'sm')}Διαγραφή ${p.is_template ? 'προτύπου' : 'προγράμματος'}</button></div>`;
 
   const bindPe = box => {
     const pe = allPe().find(x => x.id === box.dataset.pe), m = pe.exercises.metric_type;
@@ -844,6 +882,14 @@ routes.program = async (view, programId) => {
     route();
   }));
   $('#printP').onclick = () => printProgram(p, athlete);
+  const ta = $('#tplAct');
+  if (ta) ta.onclick = async () => { await q(sb.from('programs').update({ active: !p.active }).eq('id', p.id));
+    toast(p.active ? 'Το πρότυπο απενεργοποιήθηκε: δεν εμφανίζεται στη λίστα και στην αντιγραφή' : 'Το πρότυπο ενεργοποιήθηκε'); route(); };
+  $('#delProg').onclick = () => confirmSheet('Οριστική διαγραφή', `«${progTitle(p)}»: διαγράφεται με όλες τις ασκήσεις του. Δεν αναιρείται.`
+    + (p.is_template ? '' : ' Γίνεται μόνο αν δεν έχει καταγραφεί καμία προπόνηση.'), 'Διαγραφή', async () => {
+    const r = await q(sb.rpc('delete_program', { p_id: p.id }));
+    if (r === 'in_use') return inUse('Το πρόγραμμα έχει ήδη καταγεγραμμένες προπονήσεις, οπότε κρατιέται για το ιστορικό του αθλητή.');
+    toast('Διαγράφηκε'); location.hash = back[0]; }, true);
   const tb = $('#saveTpl');
   if (tb) tb.onclick = () => sheet('Αποθήκευση ως πρότυπο', `<form id="tn"><div class="field"><label>Όνομα προτύπου</label>
       <input name="n" required placeholder="π.χ. Αρχάριοι · Δύναμη"></div><button class="btn block">Αποθήκευση</button></form>`, (el, close) => {
@@ -898,31 +944,55 @@ function doPrint(p, athlete, days, S) {
 // =====================================================================
 // Ασκήσεις
 // =====================================================================
+// Ενέργειες σε άσκηση/πρότυπο: απενεργοποίηση ή διαγραφή (η διαγραφή μόνο αν δεν χρησιμοποιείται)
+function itemActions(title, active, offText, onToggle, onDelete) {
+  sheet(title, `<p class="small muted" style="margin-top:0">${active ? esc(offText) : 'Είναι ανενεργό: δεν εμφανίζεται στις λίστες.'}</p>
+    <button class="btn secondary block" id="iaT">${active ? 'Απενεργοποίηση' : 'Ενεργοποίηση'}</button>
+    <button class="btn danger block" id="iaD" style="margin-top:8px">${icon('x', 'sm')}Οριστική διαγραφή</button>
+    <p class="tiny muted" style="margin-bottom:0">Η διαγραφή γίνεται μόνο αν δεν χρησιμοποιείται πουθενά. Αλλιώς προτείνεται απενεργοποίηση.</p>`, (el, close) => {
+    $('#iaT', el).onclick = () => { close(); onToggle(!active); };
+    $('#iaD', el).onclick = () => { close(); confirmSheet('Οριστική διαγραφή', `«${title}»: η διαγραφή δεν αναιρείται.`, 'Διαγραφή', onDelete, true); };
+  });
+}
+function inUse(why, deactivate) {
+  sheet('Δεν μπορεί να διαγραφεί', `<p>${esc(why)}</p><p class="small muted">Για να μη χαθεί το ιστορικό, μπορείτε να το απενεργοποιήσετε: δεν θα εμφανίζεται, αλλά τα δεδομένα μένουν.</p>
+    ${deactivate ? '<button class="btn block" id="iuD">Απενεργοποίηση</button>' : ''}<button class="btn ghost block" data-close style="margin-top:8px">Κλείσιμο</button>`,
+    (el, close) => { const b = $('#iuD', el); if (b) b.onclick = () => { close(); deactivate(); }; });
+}
+
 routes.exercises = async view => {
   const [exs, lib] = await Promise.all([gymExercises(true), q(sb.from('exercise_library').select('*').order('muscle_group').order('name_el'))]);
   const have = new Set(exs.map(e => e.animation_code)), missing = lib.filter(l => !have.has(l.code));
-  let tab = 'mine', search = '';
+  let tab = 'mine', search = '', act = true;
   view.innerHTML = `
     <div class="head-row"><h1>Ασκήσεις ${help('exercises')}</h1><div class="row nowrap" style="gap:6px">
       <button class="btn secondary small" id="photo" title="Από φωτογραφία εξοπλισμού (σύντομα)">${icon('camera', 'sm')}</button>
       <button class="btn small" id="custom">${icon('plus', 'sm')}Νέα</button></div></div>
     <div class="seg" id="seg"><button data-t="mine" class="active">Του γυμναστηρίου (${exs.length})</button><button data-t="lib">Βιβλιοθήκη (${missing.length})</button></div>
     <div class="search">${icon('search', 'sm')}<input id="q" placeholder="Αναζήτηση"></div>
-    <div id="list"></div>`;
+    <div class="chips" id="act"></div><div id="list"></div>`;
   const draw = () => {
     const src = tab === 'mine' ? exs.map(e => ({ id: e.id, name: e.name, code: e.animation_code, group: e.muscle_group || 'Άλλο', sub: metricLabel[e.metric_type], active: e.active }))
       : missing.map(l => ({ id: l.id, name: l.name_el, code: l.code, group: l.muscle_group, sub: metricLabel[l.metric_type], lib: true }));
-    const list = src.filter(x => x.name.toLowerCase().includes(search));
+    const nOn = exs.filter(e => e.active).length;
+    $('#act').innerHTML = tab === 'mine' ? `<button class="chip ${act ? 'active' : ''}" data-a="1">Ενεργές <span class="badge b-muted">${nOn}</span></button>
+      <button class="chip ${act ? '' : 'active'}" data-a="0">Ανενεργές <span class="badge b-muted">${exs.length - nOn}</span></button>` : '';
+    $$('#act .chip').forEach(c => c.onclick = () => { act = c.dataset.a === '1'; draw(); });
+    const list = src.filter(x => x.name.toLowerCase().includes(search) && (x.lib || x.active === act));
     $('#list').innerHTML = [...groupBy(list, x => x.group)].map(([g, xs]) => `<h2 class="grp">${esc(g)} <span class="muted">${xs.length}</span></h2><div class="card rows cols">${xs.map(x => `
-      <div class="mrow" style="${x.active === false ? 'opacity:.5' : ''}"><button class="stick-btn sm" data-show="${x.id}">${Stickman.svg(x.code)}</button>
+      <div class="mrow"><button class="stick-btn sm" data-show="${x.id}">${Stickman.svg(x.code)}</button>
         <div class="grow" style="min-width:0"><b class="ellipsis" style="display:block">${esc(x.name)}</b><div class="muted tiny">${esc(x.sub)}</div></div>
         ${x.lib ? `<button class="icon-btn" data-addlib="${x.id}" title="Προσθήκη" aria-label="Προσθήκη">${icon('plus', 'sm')}</button>` :
-          `<label class="check" title="Ενεργή"><input type="checkbox" data-toggle="${x.id}" ${x.active ? 'checked' : ''}></label>`}</div>`).join('')}</div>`).join('')
-      || '<div class="card empty">Δεν βρέθηκαν ασκήσεις</div>';
+          `<button class="icon-btn" data-more="${x.id}" title="Ενέργειες" aria-label="Ενέργειες">${icon('more', 'sm')}</button>`}</div>`).join('')}</div>`).join('')
+      || `<div class="card empty">${tab === 'mine' && !act ? 'Καμία ανενεργή άσκηση' : 'Δεν βρέθηκαν ασκήσεις'}</div>`;
     $$('[data-show]').forEach(b => b.onclick = () => { const x = src.find(y => y.id === b.dataset.show); showExercise(x.name, x.code, x.group); });
-    $$('[data-toggle]').forEach(c => c.onchange = async () => {
-      await q(sb.from('exercises').update({ active: c.checked }).eq('id', c.dataset.toggle));
-      exs.find(e => e.id === c.dataset.toggle).active = c.checked; draw(); });
+    $$('[data-more]').forEach(b => b.onclick = () => { const e = exs.find(y => y.id === b.dataset.more);
+      itemActions(e.name, e.active, 'Η άσκηση δεν θα εμφανίζεται στη λίστα και στην επιλογή ασκήσεων των προγραμμάτων. Το ιστορικό μένει.',
+        async on => { await q(sb.from('exercises').update({ active: on }).eq('id', e.id)); e.active = on; toast(on ? 'Ενεργοποιήθηκε' : 'Απενεργοποιήθηκε'); draw(); },
+        async () => { const r = await q(sb.rpc('delete_exercise', { p_id: e.id }));
+          if (r === 'in_use') return inUse('Η άσκηση υπάρχει σε προγράμματα ή σε καταγεγραμμένες προπονήσεις.', async () => {
+            await q(sb.from('exercises').update({ active: false }).eq('id', e.id)); e.active = false; toast('Απενεργοποιήθηκε'); draw(); });
+          exs.splice(exs.indexOf(e), 1); toast('Διαγράφηκε'); draw(); }); });
     $$('[data-addlib]').forEach(b => b.onclick = async () => {
       const l = lib.find(x => x.id === b.dataset.addlib);
       await q(sb.from('exercises').insert({ gym_id: st.cur.gym_id, library_id: l.id, name: l.name_el, muscle_group: l.muscle_group,
@@ -966,6 +1036,7 @@ async function memberSheet(m, after) {
       <div class="field"><label>Στόχος</label><input name="goal" value="${esc(m.goal || '')}"></div>
       <div class="field"><label>Προπονητής</label><select name="coach_id"><option value="">—</option>${coaches.map(c =>
         `<option value="${c.id}" ${c.id === m.coach_id ? 'selected' : ''}>${esc(c.full_name)}</option>`).join('')}</select></div></div>
+    <div class="field"><label>Σχόλια</label><textarea name="notes" rows="2" placeholder="π.χ. έμπειρος, πρόβλημα στο γόνατο, έρχεται μόνο βράδυ">${esc(m.notes || '')}</textarea></div>
     <div class="row" style="margin-bottom:14px"><label class="check"><input type="checkbox" name="is_athlete" ${m.is_athlete ? 'checked' : ''}>Αθλητής</label>
       ${owner ? `<label class="check"><input type="checkbox" name="is_coach" ${m.is_coach ? 'checked' : ''}>Προπονητής</label>` : ''}
       ${!isNew ? `<label class="check"><input type="checkbox" name="active" ${m.status === 'active' ? 'checked' : ''} ${m.user_id === st.user.id ? 'disabled' : ''}>Ενεργό</label>` : ''}</div>
@@ -975,7 +1046,7 @@ async function memberSheet(m, after) {
     $('#mf', el).onsubmit = async e => {
       e.preventDefault(); const f = e.target;
       const row = { full_name: f.full_name.value.trim(), phone: f.phone.value || null, goal: f.goal.value || null,
-        coach_id: f.coach_id.value || null, is_athlete: f.is_athlete.checked };
+        coach_id: f.coach_id.value || null, is_athlete: f.is_athlete.checked, notes: f.notes.value.trim() || null };
       if (owner) row.is_coach = f.is_coach.checked;
       try {
         if (!isNew && !m.email && f.email.value.trim()) row.email = f.email.value.trim().toLowerCase();
@@ -1009,7 +1080,7 @@ routes.members = async view => {
       <div class="grow" style="min-width:0"><div class="row nowrap" style="gap:6px"><b class="ellipsis">${esc(m.full_name)}</b>
         ${m.is_owner ? '<span class="badge b-brand">Ιδιοκτ.</span>' : m.is_coach ? '<span class="badge b-info">Προπ.</span>' : ''}
         ${!m.user_id && tab !== 'nolog' ? '<span class="badge b-warn" title="Χωρίς λογαριασμό">χωρίς λογ.</span>' : ''}</div>
-        <div class="tiny muted ellipsis">${esc(m.email)}</div></div>
+        <div class="tiny muted ellipsis">${esc(m.email || m.phone || '')}${m.notes ? ` · <span title="${esc(m.notes)}">📝 ${esc(m.notes)}</span>` : ''}</div></div>
       ${tab === 'nolog' && m.is_athlete ? (progOf[m.id] ? `<button class="icon-btn" data-print="${m.id}" title="Εκτύπωση προγράμματος" aria-label="Εκτύπωση προγράμματος">${icon('print', 'sm')}</button>`
         : '<span class="tiny muted">χωρίς πρόγραμμα</span>') : icon('right', 'sm')}</div>`).join('')
       || '<div class="empty">Κανένα μέλος</div>';
@@ -1044,7 +1115,10 @@ routes.settings = async view => {
       <div class="field"><label>Όνομα</label><input name="name" value="${esc(g.name)}"></div>
       <div class="field"><label>Πόλη</label><input name="city" value="${esc(g.city || '')}"></div>
       <div class="field"><label>Τηλέφωνο</label><input name="phone" value="${esc(g.phone || '')}"></div>
-</div>
+      <div class="field"><label>Διεύθυνση</label><input name="address" value="${esc(g.address || '')}" placeholder="οδός, αριθμός"></div>
+      <div class="field"><label>Email επικοινωνίας</label><input name="email" type="email" value="${esc(g.email || '')}"></div>
+      <div class="field"><label>Ιστοσελίδα / Instagram</label><input name="website" value="${esc(g.website || '')}" placeholder="π.χ. instagram.com/…"></div></div>
+      <p class="tiny muted" style="margin:0 0 10px">Εμφανίζονται στις εκτυπώσεις (πακέτα, προγράμματα).</p>
       <div class="field"><label>Λογότυπο (σύνδεσμος εικόνας)</label><input name="logo_url" value="${esc(g.logo_url || '')}" placeholder="https://…"></div>
       <h3 style="margin-top:8px">Συνδρομές</h3><div class="form-grid" style="margin-top:8px">
         <div class="field"><label>Ληγμένη συνδρομή ή οφειλή</label><select name="expired_policy">
@@ -1058,7 +1132,7 @@ routes.settings = async view => {
       <button class="btn block">Αποθήκευση</button></form>
     <div class="card small muted">${icon('trend', 'sm')} Οι προτάσεις κιλών ρυθμίζονται ανά άσκηση μέσα στο πρόγραμμα (Αυτόματα / Σταθερά).</div>`;
   $('#gf').onsubmit = async e => { e.preventDefault(); const f = e.target, upd = {};
-    ['name', 'city', 'phone', 'logo_url'].forEach(k => upd[k] = f[k].value || null);
+    ['name', 'city', 'phone', 'logo_url', 'address', 'email', 'website'].forEach(k => upd[k] = f[k].value.trim() || null);
     upd.expired_policy = f.expired_policy.value; upd.expiring_days = num(f.expiring_days.value) || 7;
     upd.cancel_hours = num(f.cancel_hours.value) ?? 2; upd.book_ahead_days = num(f.book_ahead_days.value) || 14; upd.booking_requires_sub = f.booking_requires_sub.checked;
     await q(sb.from('gyms').update(upd).eq('id', g.id)); toast('Αποθηκεύτηκε'); await loadMe(); shell(); route(); };
@@ -1387,8 +1461,7 @@ routes.checkin = async (view, arg) => {
     <div id="recent"></div>`;
 
   const idle = () => { const el = $('#result'); if (!el) return; el.className = 'card ci-result idle';
-    el.innerHTML = `${icon(mode === 'class' ? 'cal' : 'users')}<span>${mode === 'class' ? 'Διαλέξτε τμήμα και πατήστε ✓ σε όποιον ήρθε'
-      : 'Πατήστε το όνομα για να σημειωθεί παρών. Ξαναπατήστε για αναίρεση'}</span>`; };
+    el.innerHTML = `<span>${mode === 'class' ? 'Διαλέξτε τμήμα · ✓ σε όποιον ήρθε' : 'Πατήστε όνομα = παρών · ξανά = αναίρεση'}</span>`; };
   async function loadToday() {
     const [f, t] = dayRange(todayISO());
     today = await q(sb.from('attendance').select('id, member_id, checked_in_at, method').eq('gym_id', g).gte('checked_in_at', f).lt('checked_in_at', t));
@@ -1757,8 +1830,10 @@ function memState(ms) {   // κατάσταση στον client για τον α
 routes.subs = async (view, sub) => {
   sub = sub || 'status';
   view.innerHTML = `<div class="head-row"><h1>Συνδρομές ${help('subs')}</h1></div>
-    <div class="seg">${[['status', 'Αθλητές'], ['payments', 'Πληρωμές'], ['plans', 'Πακέτα']].map(([k, l]) =>
-      `<button data-s="${k}" class="${k === sub ? 'active' : ''}">${l}</button>`).join('')}</div><div id="sc"></div>`;
+    <div class="seg">${[['status', 'Κατάσταση'], ['payments', 'Πληρωμές'], ['plans', 'Πακέτα']].map(([k, l]) =>
+      `<button data-s="${k}" class="${k === sub ? 'active' : ''}">${l}</button>`).join('')}</div>
+    <p class="small muted" style="margin:-4px 0 10px">${{ status: 'Ποιος έχει ενεργή συνδρομή, ποιος λήγει και ποιος χρωστάει. Πατήστε αθλητή για ανανέωση ή πληρωμή.',
+      payments: 'Τι εισπράχθηκε κάθε μήνα, ανά τρόπο πληρωμής.', plans: 'Τα πακέτα που πουλάτε (τιμοκατάλογος). Τυπώνονται για να τα δίνετε σε αθλητές.' }[sub]}</p><div id="sc"></div>`;
   $$('[data-s]', view).forEach(b => b.onclick = () => location.hash = '#/subs/' + b.dataset.s);
   await SUBS[sub]($('#sc'));
 };
@@ -1794,20 +1869,20 @@ const SUBS = {
         ['expired', 'Ληγμένες', cnt('expired'), 'b-bad'], ['debt', 'Οφειλή', D.members.filter(m => D.bal[m.id] > 0.009).length, 'b-bad'],
         ['none', 'Χωρίς', cnt('none'), 'b-muted'], ['frozen', 'Πάγωμα', cnt('frozen'), 'b-info']].map(([k, l, n, c]) =>
         `<button class="chip ${k === 'all' ? 'active' : ''}" data-f="${k}">${l} <span class="badge ${c}">${n}</span></button>`).join('')}</div>
-      <div class="grid cols-2" id="list"></div>`;
+      <div class="card rows" id="list"></div>`;
     const draw = () => {
       const xs = D.members.filter(m => { const s = D.status[m.id]?.status || 'none';
         return (filter === 'all' || (filter === 'debt' ? D.bal[m.id] > 0.009 : s === filter)) && m.full_name.toLowerCase().includes(search); });
       $('#list').innerHTML = xs.map(m => { const s = D.status[m.id] || { status: 'none' }, [c, l] = SUB[s.status], b = D.bal[m.id] || 0;
-        return `<div class="card"><div class="list-item tap" data-m="${m.id}" style="cursor:pointer">${avatar(m.full_name)}<div class="grow" style="min-width:0">
-          <div class="row between nowrap"><b class="ellipsis">${esc(m.full_name)}</b><span class="badge ${c}">${l}</span></div>
-          <div class="small muted">${esc(subLine(s))}</div>
-          ${b > 0.009 ? `<span class="badge b-bad" style="margin-top:4px">Οφειλή ${money(b)}</span>` : ''}</div></div>
-          ${['expiring', 'expired', 'none'].includes(s.status) || b > 0.009 ? `<div class="row" style="margin-top:10px">
-            ${['expiring', 'expired', 'none'].includes(s.status) ? `<button class="btn small grow" data-renew="${m.id}">${icon('plus', 'sm')}${s.status === 'none' ? 'Νέα συνδρομή' : 'Ανανέωση'}</button>` : ''}
-            ${b > 0.009 ? `<button class="btn secondary small grow" data-pay="${m.id}">${icon('euro', 'sm')}Πληρωμή</button>` : ''}</div>` : ''}</div>`; }).join('')
-        || '<div class="card empty">Κανένας αθλητής</div>';
-      $$('[data-m]').forEach(b => b.onclick = () => SUBS.memberSheet(b.dataset.m, D));
+        const renew = ['expiring', 'expired', 'none'].includes(s.status);
+        return `<div class="mrow" data-m="${m.id}">${avatar(m.full_name, 'sm')}<div class="grow" style="min-width:0">
+          <b class="ellipsis" style="display:block">${esc(m.full_name)}</b>
+          <div class="row nowrap" style="gap:4px;margin-top:2px"><span class="badge ${c}">${l}</span>${b > 0.009 ? `<span class="badge b-bad">οφειλή ${money(b)}</span>` : ''}
+            ${s.status !== 'none' ? `<span class="tiny muted ellipsis">${esc(subLine(s))}</span>` : ''}</div></div>
+          ${renew ? `<button class="btn small" data-renew="${m.id}" title="${s.status === 'none' ? 'Νέα συνδρομή' : 'Ανανέωση'}">${icon('plus', 'sm')}<span class="hide-sm">${s.status === 'none' ? 'Νέα' : 'Ανανέωση'}</span></button>` : ''}
+          ${b > 0.009 ? `<button class="btn secondary small" data-pay="${m.id}" title="Πληρωμή">${icon('euro', 'sm')}</button>` : ''}</div>`; }).join('')
+        || '<div class="empty">Κανένας αθλητής</div>';
+      $$('[data-m]').forEach(b => b.onclick = e => { if (e.target.closest('[data-renew],[data-pay]')) return; SUBS.memberSheet(b.dataset.m, D); });
       $$('[data-renew]').forEach(b => b.onclick = () => SUBS.newSheet(b.dataset.renew, D));
       $$('[data-pay]').forEach(b => b.onclick = () => SUBS.paySheet(b.dataset.pay, D));
     };
@@ -1914,12 +1989,13 @@ const SUBS = {
   },
   async plans(el) {
     const plans = await q(sb.from('membership_plans').select('*').eq('gym_id', st.cur.gym_id).order('sort_order'));
-    el.innerHTML = `<div class="row between" style="margin-bottom:12px"><span class="muted small">Τα πακέτα που πουλάει το γυμναστήριο</span>
-      <button class="btn small" id="np">${icon('plus', 'sm')}Πακέτο</button></div>
+    el.innerHTML = `<div class="row between" style="margin-bottom:12px"><span class="muted small">${plans.filter(p => p.active).length} ενεργά πακέτα</span>
+      <div class="row nowrap" style="gap:6px"><button class="btn secondary small" id="prP">${icon('print', 'sm')}Εκτύπωση</button>
+      <button class="btn small" id="np">${icon('plus', 'sm')}Πακέτο</button></div></div>
       <div class="grid cols-2">${plans.map(p => `<button class="card tap list-item" data-p="${p.id}" style="text-align:left;width:100%;${p.active ? '' : 'opacity:.5'}">
         <div class="logo" style="background:var(--brand-soft);color:var(--brand)">${icon(p.kind === 'time' ? 'clock' : 'checkSq')}</div>
         <div class="grow"><b>${esc(p.name)}</b><div class="small muted">${p.kind === 'time' ? `${p.months} ${p.months === 1 ? 'μήνας' : 'μήνες'}` :
-          `${p.visits} επισκέψεις${p.valid_days ? ` · ισχύ ${p.valid_days} ημ.` : ''}`}${p.active ? '' : ' · ανενεργό'}</div></div>
+          `${p.visits} επισκέψεις${p.valid_days ? ` · ισχύ ${p.valid_days} ημ.` : ''}`}${p.active ? '' : ' · ανενεργό'}</div>${p.description ? `<div class="tiny muted ellipsis">${esc(p.description)}</div>` : ''}</div>
         <b style="font-size:18px">${money(p.price)}</b></button>`).join('') || '<div class="card empty">Κανένα πακέτο ακόμα</div>'}</div>`;
     const edit = p => {
       const isNew = !p; p = p || { kind: 'time', months: 1, price: '', active: true };
@@ -1931,6 +2007,7 @@ const SUBS = {
           <div class="field" data-for="visits"><label>Επισκέψεις</label><input name="visits" type="number" min="1" value="${p.visits ?? 10}"></div>
           <div class="field" data-for="visits"><label>Ισχύ (ημέρες, προαιρετικό)</label><input name="valid_days" type="number" min="1" value="${p.valid_days ?? ''}"></div>
           <div class="field"><label>Τιμή (€)</label><input name="price" type="number" step="0.01" inputmode="decimal" required value="${p.price}"></div></div>
+        <div class="field"><label>Περιγραφή (εμφανίζεται στην εκτύπωση)</label><input name="description" value="${esc(p.description || '')}" placeholder="π.χ. Απεριόριστες προπονήσεις σε όλα τα τμήματα"></div>
         <label class="check" style="margin-bottom:14px"><input type="checkbox" name="active" ${p.active ? 'checked' : ''}>Ενεργό (εμφανίζεται στις νέες συνδρομές)</label>
         <button class="btn block">Αποθήκευση</button></form>`, (el2, close) => {
         let kind = p.kind; const f = $('#plf', el2);
@@ -1940,16 +2017,52 @@ const SUBS = {
         f.onsubmit = async e => { e.preventDefault();
           const row = { gym_id: st.cur.gym_id, name: f.name.value.trim(), kind, price: num(f.price.value) || 0, active: f.active.checked,
             months: kind === 'time' ? num(f.months.value) : null, visits: kind === 'visits' ? num(f.visits.value) : null,
-            valid_days: kind === 'visits' ? num(f.valid_days.value) : null };
+            valid_days: kind === 'visits' ? num(f.valid_days.value) : null, description: f.description.value.trim() || null };
           if (isNew) row.sort_order = plans.length + 1;
           await q(isNew ? sb.from('membership_plans').insert(row) : sb.from('membership_plans').update(row).eq('id', p.id));
           close(); toast('Αποθηκεύτηκε'); route(); };
       });
     };
     $('#np').onclick = () => edit(null);
+    $('#prP').onclick = () => printPlans(plans.filter(p => p.active));
     $$('[data-p]').forEach(b => b.onclick = () => edit(plans.find(p => p.id === b.dataset.p)));
   }
 };
+
+// ---------- Εκτύπωση τιμοκαταλόγου πακέτων (A4) με στοιχεία γυμναστηρίου ----------
+async function printPlans(plans) {
+  if (!plans.length) return toast('Δεν υπάρχουν ενεργά πακέτα για εκτύπωση', true);
+  const [g, ct] = await Promise.all([q(sb.from('gyms').select('*').eq('id', st.cur.gym_id).single()),
+    q(sb.from('class_types').select('name, dropin_price').eq('gym_id', st.cur.gym_id).eq('active', true).order('name'))]);
+  const drop = ct.filter(t => t.dropin_price != null);
+  sheet('Εκτύπωση πακέτων', `<p class="small muted" style="margin-top:0">Σελίδα A4 με τα ενεργά πακέτα και τα στοιχεία του γυμναστηρίου
+      (από τις Ρυθμίσεις). Για να μη φαίνεται κάποιο πακέτο, κάντε το ανενεργό.</p>
+    ${drop.length ? '<label class="check" style="margin-bottom:10px"><input type="checkbox" id="ppD" checked>Τιμές μεμονωμένης προπόνησης ανά τμήμα</label>' : ''}
+    <div class="field"><label>Τίτλος</label><input id="ppT" value="Πακέτα συνδρομών"></div>
+    <div class="field"><label>Σημείωση στο τέλος (προαιρετικά)</label><textarea id="ppN" rows="2" placeholder="π.χ. Οικογενειακή έκπτωση 10% · Δωρεάν δοκιμαστική προπόνηση"></textarea></div>
+    ${!g.address && !g.email && !g.website ? `<p class="tiny muted">Συμπληρώστε διεύθυνση, email και ιστοσελίδα στις <a href="#/settings">Ρυθμίσεις</a> για να φαίνονται στο χαρτί.</p>` : ''}
+    <button class="btn block" id="ppGo">${icon('print', 'sm')}Εκτύπωση</button>`, (el, close) => {
+    $('#ppGo', el).onclick = () => {
+      const withD = $('#ppD', el)?.checked, title = $('#ppT', el).value.trim(), note = $('#ppN', el).value.trim(); close();
+      const dur = p => p.kind === 'time' ? `${p.months} ${p.months === 1 ? 'μήνας' : 'μήνες'}` : `${p.visits} ${p.visits === 1 ? 'επίσκεψη' : 'επισκέψεις'}${p.valid_days ? ` · ισχύ ${p.valid_days} ημέρες` : ''}`;
+      const contact = [g.address, g.city, g.phone && 'Τηλ. ' + g.phone, g.email, g.website].filter(Boolean);
+      $('#printArea')?.remove();
+      document.body.insertAdjacentHTML('beforeend', `<div id="printArea"><section class="plpage">
+        <header class="plhead">${g.logo_url ? `<img src="${esc(g.logo_url)}" alt="">` : ''}<div><div class="plgym">${esc(g.name)}</div>
+          <div class="plcontact">${contact.map(esc).join(' · ')}</div></div></header>
+        <h1 class="pltitle">${esc(title || 'Πακέτα συνδρομών')}</h1>
+        <table class="pltable"><tbody>${plans.map(p => `<tr><td><b>${esc(p.name)}</b><small>${esc(dur(p))}${p.description ? ' · ' + esc(p.description) : ''}</small></td>
+          <td class="plprice">${money(p.price)}</td></tr>`).join('')}</tbody></table>
+        ${withD && drop.length ? `<h2 class="plsub">Μεμονωμένη προπόνηση</h2><table class="pltable"><tbody>${drop.map(t =>
+          `<tr><td><b>${esc(t.name)}</b></td><td class="plprice">${money(t.dropin_price)}</td></tr>`).join('')}</tbody></table>` : ''}
+        ${note ? `<div class="plnote">${esc(note)}</div>` : ''}
+        <footer class="plfoot">Τιμές σε ευρώ · ${fmtDate(todayISO())}</footer></section></div>`);
+      const done = () => { $('#printArea')?.remove(); window.removeEventListener('afterprint', done); };
+      window.addEventListener('afterprint', done);
+      setTimeout(() => window.print(), 150);
+    };
+  });
+}
 
 // =====================================================================
 // Αθλητής: η κάρτα μου (QR check-in + συνδρομή + πληρωμές)
@@ -2016,38 +2129,76 @@ const ADMIN = {
     await load();
   },
   async gyms(el) {
-    const [gyms, stats] = await Promise.all([q(sb.from('gyms').select('*').order('created_at', { ascending: false })), q(sb.rpc('admin_gym_stats'))]);
-    const S = Object.fromEntries(stats.map(s => [s.gym_id, s]));
+    const [gyms, stats, staff] = await Promise.all([q(sb.from('gyms').select('*').order('created_at', { ascending: false })), q(sb.rpc('admin_gym_stats')),
+      q(sb.rpc('admin_gym_staff'))]);
+    const S = Object.fromEntries(stats.map(s => [s.gym_id, s])), STF = groupBy(staff, x => x.gym_id);
+    let search = '';
     let filter = 'all';
     el.innerHTML = `<div class="kpis">${['pending', 'active', 'suspended'].map(s => `<div class="kpi ${s === 'pending' && gyms.some(g => g.status === s) ? 'accent' : ''}">
       <b>${gyms.filter(g => g.status === s).length}</b><span>${GSTAT[s][1]}</span></div>`).join('')}
       <div class="kpi"><b>${stats.reduce((a, s) => a + s.athletes, 0)}</b><span>αθλητές συνολικά</span></div></div>
+      <div class="row nowrap" style="margin-bottom:10px"><div class="search grow" style="margin:0">${icon('search', 'sm')}<input id="gq" placeholder="Αναζήτηση γυμναστηρίου, ιδιοκτήτη ή email"></div>
+        <button class="btn small" id="newGym">${icon('plus', 'sm')}Νέο</button></div>
       <div class="chips" id="flt"><button class="chip active" data-f="all">Όλα</button>${Object.entries(GSTAT).map(([k, [, l]]) => `<button class="chip" data-f="${k}">${l}</button>`).join('')}</div>
       <div class="grid cols-2" id="gl"></div>`;
     const draw = () => {
-      $('#gl').innerHTML = gyms.filter(g => filter === 'all' || g.status === filter).map(g => { const s = S[g.id] || {}, exp = g.paid_until && g.paid_until < todayISO();
+      const own = g => (STF.get(g.id) || []).filter(x => x.is_owner);
+      $('#gl').innerHTML = gyms.filter(g => (filter === 'all' || g.status === filter) &&
+          [g.name, g.city, g.email, ...own(g).flatMap(o => [o.full_name, o.email])].join(' ').toLowerCase().includes(search))
+        .map(g => { const s = S[g.id] || {}, exp = g.paid_until && g.paid_until < todayISO();
         return `<button class="card tap" data-g="${g.id}" style="text-align:left;width:100%"><div class="list-item">
           <div class="logo" style="background:${esc(g.primary_color)}">${esc(g.name.slice(0, 2).toUpperCase())}</div>
-          <div class="grow"><b>${esc(g.name)}</b><div class="small muted">${esc(g.city || '—')} · εγγραφή ${fmtDate(g.created_at)}</div></div>
+          <div class="grow" style="min-width:0"><b>${esc(g.name)}</b><div class="small muted">${esc(g.city || '—')} · εγγραφή ${fmtDate(g.created_at)}</div>
+            ${own(g).map(o => `<div class="small ellipsis" style="margin-top:4px">${esc(o.full_name)}${o.has_account ? '' : ' <span class="badge b-warn">χωρίς λογ.</span>'}</div>
+              <div class="small muted ellipsis">${esc(o.email || '')}</div>`).join('')}</div>
           <span class="badge ${GSTAT[g.status][0]}">${GSTAT[g.status][1]}</span></div>
           <div class="row small" style="margin-top:10px;gap:14px"><span><b>${s.athletes ?? 0}</b>/${g.max_athletes} αθλητές</span>
             <span><b>${s.sessions_30d ?? 0}</b> προπ. 30ημ.</span><span class="muted">τελ. ${fmtDate(s.last_activity)}</span></div>
           <div class="row" style="margin-top:8px;gap:6px"><span class="badge ${(PLAN[g.plan] || PLAN.basic)[0]}">${(PLAN[g.plan] || [, g.plan])[1]}</span>
             <span class="badge ${exp ? 'b-bad' : 'b-muted'}">έως ${fmtDate(g.paid_until)}</span></div></button>`; }).join('') || '<div class="card empty">Κανένα γυμναστήριο</div>';
-      $$('[data-g]').forEach(b => b.onclick = () => ADMIN.gymSheet(gyms.find(g => g.id === b.dataset.g), S[b.dataset.g]));
+      $$('[data-g]').forEach(b => b.onclick = () => ADMIN.gymSheet(gyms.find(g => g.id === b.dataset.g), S[b.dataset.g], STF.get(b.dataset.g) || []));
     };
+    $('#gq').oninput = e => { search = e.target.value.toLowerCase(); draw(); };
+    $('#newGym').onclick = () => ADMIN.newGym();
     $$('#flt .chip').forEach(c => c.onclick = () => { filter = c.dataset.f; $$('#flt .chip').forEach(x => x.classList.toggle('active', x === c)); draw(); });
     draw();
   },
-  gymSheet(g, s = {}) {
+  newGym() {
+    sheet('Νέο γυμναστήριο', `<p class="small muted" style="margin-top:0">Ενεργοποιείται αμέσως, χωρίς αίτηση. Ο ιδιοκτήτης φτιάχνει λογαριασμό
+      στην εφαρμογή με <b>το ίδιο email</b> και μπαίνει κατευθείαν ως ιδιοκτήτης.</p>
+      <form id="ng"><div class="form-grid">
+        <div class="field"><label>Όνομα γυμναστηρίου</label><input name="name" required></div>
+        <div class="field"><label>Πόλη</label><input name="city"></div>
+        <div class="field"><label>Ονοματεπώνυμο ιδιοκτήτη</label><input name="owner" required></div>
+        <div class="field"><label>Email ιδιοκτήτη</label><input name="email" type="email" required></div>
+        <div class="field"><label>Τηλέφωνο</label><input name="phone" type="tel"></div>
+        <div class="field"><label>Πακέτο</label><select name="plan">${Object.entries(PLAN).map(([k, [, l]]) => `<option value="${k}">${l}</option>`).join('')}</select></div></div>
+        <button class="btn block">Δημιουργία</button></form>`, (el, close) => {
+      $('#ng', el).onsubmit = async e => { e.preventDefault(); const f = e.target;
+        try { await q(sb.rpc('admin_create_gym', { p_name: f.name.value, p_owner_name: f.owner.value, p_owner_email: f.email.value,
+            p_city: f.city.value || null, p_phone: f.phone.value || null, p_plan: f.plan.value }));
+          close(); toast('Το γυμναστήριο δημιουργήθηκε'); route(); } catch {} };
+    });
+  },
+  gymSheet(g, s = {}, staff = []) {
+    const ago = d => d ? fmtDate(d) : 'ποτέ';
     sheet(g.name, `<div class="row" style="gap:6px;margin-bottom:12px"><span class="badge ${GSTAT[g.status][0]}">${GSTAT[g.status][1]}</span>
-        <span class="badge b-muted">${s.members ?? 0} μέλη · ${s.coaches ?? 0} προπονητές · ${s.linked ?? 0} με λογαριασμό</span></div>
+        <span class="badge b-muted">${s.members ?? 0} μέλη · ${s.athletes ?? 0} ενεργοί αθλητές · ${s.linked ?? 0} με λογαριασμό</span></div>
+      <h3>Ιδιοκτήτης & προπονητές</h3>
+      <div class="card rows" style="margin-bottom:12px">${staff.map(x => `<div class="mrow">${avatar(x.full_name, 'sm')}<div class="grow" style="min-width:0">
+          <div class="row nowrap" style="gap:6px"><b class="ellipsis">${esc(x.full_name)}</b>${x.is_owner ? '<span class="badge b-brand">Ιδιοκτ.</span>' : '<span class="badge b-info">Προπ.</span>'}
+            ${x.status !== 'active' ? '<span class="badge b-muted">ανενεργός</span>' : ''}</div>
+          <div class="tiny"><a href="mailto:${esc(x.email || '')}">${esc(x.email || '—')}</a>${x.phone ? ` · <a href="tel:${esc(x.phone)}">${esc(x.phone)}</a>` : ''}</div>
+          <div class="tiny muted">${x.has_account ? `λογαριασμός από ${fmtDate(x.account_created)} · τελ. σύνδεση ${ago(x.last_sign_in)}` : 'δεν έχει φτιάξει λογαριασμό ακόμα'}</div></div></div>`).join('')
+        || '<div class="empty">Κανένας</div>'}</div>
       <div class="row" style="margin-bottom:14px">${g.status !== 'active' ? `<button class="btn grow" data-st="1">${icon('check', 'sm')}Έγκριση</button>` :
         `<button class="btn danger grow" data-st="0">Αναστολή</button>`}</div>
       <form id="gf"><div class="form-grid">
         <div class="field"><label>Όνομα</label><input name="name" value="${esc(g.name)}"></div>
         <div class="field"><label>Πόλη</label><input name="city" value="${esc(g.city || '')}"></div>
         <div class="field"><label>Τηλέφωνο</label><input name="phone" value="${esc(g.phone || '')}"></div>
+        <div class="field"><label>Email γυμναστηρίου</label><input name="email" type="email" value="${esc(g.email || '')}"></div>
+        <div class="field"><label>Διεύθυνση</label><input name="address" value="${esc(g.address || '')}"></div>
         <div class="field"><label>Πακέτο</label><select name="plan">${Object.entries(PLAN).map(([k, [, l]]) => `<option value="${k}" ${k === g.plan ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
         <div class="field"><label>Μέγιστοι αθλητές</label><input name="max_athletes" type="number" min="1" value="${g.max_athletes}"></div>
         <div class="field"><label>Ισχύει έως</label>${dateField('gpaid', g.paid_until || '')}</div>
@@ -2065,6 +2216,7 @@ const ADMIN = {
         close(); toast(b.dataset.st === '1' ? 'Εγκρίθηκε' : 'Τέθηκε σε αναστολή'); route(); });
       $('#gf', el).onsubmit = async e => { e.preventDefault(); const f = e.target;
         await q(sb.from('gyms').update({ name: f.name.value, city: f.city.value || null, phone: f.phone.value || null, plan: f.plan.value,
+          email: f.email.value.trim() || null, address: f.address.value.trim() || null,
           max_athletes: num(f.max_athletes.value) || 30, paid_until: $('#gpaid').value || null, primary_color: f.primary_color.value, tone: f.tone.value,
           admin_notes: f.admin_notes.value || null,
           bill_min_fee: num(f.bill_min_fee.value), bill_included: num(f.bill_included.value), bill_per_athlete: num(f.bill_per_athlete.value) }).eq('id', g.id));
