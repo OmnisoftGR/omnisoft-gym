@@ -27,6 +27,8 @@ const MONTHS = ['Ιανουάριος','Φεβρουάριος','Μάρτιος'
 const fmtDateDay = v => v ? `${DAYS[new Date(v + 'T12:00:00').getDay()]} ${fmtDate(v)}` : '';
 const relDays = d => d == null ? 'ποτέ' : d === 0 ? 'σήμερα' : d === 1 ? 'χθες' : `πριν ${d} ημ.`;
 const fmtTime = s => `${pad(Math.floor(s / 60))}:${pad(s % 60)}`;
+// Διάρκεια σε λεπτά/δευτερόλεπτα: 45″, 1′30″, 10′
+const dur = s => { s = Math.round(+s || 0); const m = Math.floor(s / 60), r = s % 60; return m ? `${m}′${r ? r + '″' : ''}` : `${r}″`; };
 const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } },
                 set(k, v) { try { localStorage.setItem(k, v); } catch {} },
                 del(k) { try { localStorage.removeItem(k); } catch {} } };
@@ -157,7 +159,7 @@ const statusInfo = {
   decrease: ['b-bad', 'Μείωση'], stall: ['b-warn', 'Στασιμότητα'], new: ['b-info', 'Νέα']
 };
 function targetText(pe) {
-  if (pe.target_seconds) return `${pe.sets} × ${pe.target_seconds}″`;
+  if (pe.target_seconds) return pe.sets > 1 ? `${pe.sets} × ${dur(pe.target_seconds)}` : dur(pe.target_seconds);
   const r = pe.reps_min && pe.reps_max && pe.reps_min !== pe.reps_max ? `${pe.reps_min}–${pe.reps_max}` : (pe.reps_max || pe.reps_min || '');
   return `${pe.sets} × ${r}${pe.target_weight ? ` · ${fmtNum(pe.target_weight)} κ.` : ''}`;
 }
@@ -286,29 +288,35 @@ const TONE = (() => {
 const HELP = {
   athletes: ['Αθλητές · πώς διαβάζεται η σελίδα', `
     <p>Η αρχική σελίδα του προπονητή. Με μια ματιά βλέπετε ποιος προπονείται, ποιος λείπει και ποιος χρειάζεται τη βοήθειά σας.</p>
-    <h4>Τα τρία κουτιά πάνω</h4><ul>
-    <li><b>Προπονήθηκαν σήμερα:</b> πόσοι αθλητές έκαναν προπόνηση σήμερα.</li>
-    <li><b>Προπονήσεις 7 ημ.:</b> πόσες προπονήσεις καταγράφηκαν συνολικά την τελευταία εβδομάδα.</li>
-    <li><b>Θέλουν προσοχή:</b> πόσοι λείπουν πάνω από 10 ημέρες ή δυσκολεύονται σε κάποια άσκηση. Πατήστε το φίλτρο «Θέλουν προσοχή» για να δείτε μόνο αυτούς.</li></ul>
     <h4>Η κάρτα κάθε αθλητή</h4><ul>
     <li><b>Ένδειξη πάνω δεξιά:</b> πότε προπονήθηκε τελευταία φορά. <span class="badge b-ok">σήμερα</span> πράσινο,
       <span class="badge b-muted">πριν 3 ημ.</span> γκρι, <span class="badge b-warn">πριν 12 ημ.</span> πορτοκαλί για πάνω από 10 ημέρες,
       <span class="badge b-bad">πριν 25 ημ.</span> κόκκινο για πάνω από 21 ημέρες, «ποτέ» αν δεν έχει καταγράψει ακόμα.</li>
-    <li><b>Μπάρα:</b> πόσες προπονήσεις του προγράμματος έχει κάνει, π.χ. 12/24. Οι χαμένες μέρες δεν μετράνε: συνεχίζει από εκεί που έμεινε.</li></ul>
+    <li><b>Μπάρα:</b> πόσες προπονήσεις έχει κάνει από τα ενεργά του προγράμματα, π.χ. 3/8. Αν έχει δύο προγράμματα σε εναλλαγή, γράφει «2 πρόγρ.». Οι χαμένες μέρες δεν μετράνε.</li></ul>
     <h4>Τα σημάδια (ετικέτες)</h4><ul>
     <li><span class="badge b-ok">Έτοιμος για αύξηση</span> έβγαλε όλα τα σετ και τις επαναλήψεις σε κάποια άσκηση. Την επόμενη φορά η εφαρμογή του προτείνει λίγο περισσότερα κιλά.</li>
     <li><span class="badge b-bad">Δυσκολεύεται</span> δύο φορές στη σειρά δεν έπιασε τις ελάχιστες επαναλήψεις. Η εφαρμογή προτείνει λιγότερα κιλά. Ίσως αξίζει μια κουβέντα.</li>
     <li><span class="badge b-info">Τέλος προγράμματος</span> ολοκλήρωσε όλες τις προπονήσεις. Ώρα για νέο πρόγραμμα.</li>
     <li><span class="badge b-warn">Λήγει σύντομα</span> <span class="badge b-bad">Ληγμένη</span> <span class="badge b-muted">Χωρίς συνδρομή</span> η κατάσταση της συνδρομής. <span class="badge b-bad">Οφειλή</span> το βλέπει μόνο ο ιδιοκτήτης.</li></ul>
-    <h4>Φίλτρα</h4><ul><li><b>Τέλος προγράμματος:</b> όσοι ολοκλήρωσαν τις προπονήσεις τους και θέλουν νέο πρόγραμμα.</li>
+    <h4>Φίλτρα</h4><ul><li><b>Θέλουν προσοχή:</b> λείπουν πάνω από 10 ημέρες ή δυσκολεύονται σε κάποια άσκηση.</li>
+    <li><b>Σήμερα:</b> όσοι προπονήθηκαν σήμερα.</li>
+    <li><b>Τέλος προγράμματος:</b> ολοκλήρωσαν όλα τα προγράμματά τους και θέλουν νέα.</li>
+    <li><b>Έκλεισε ένα πρόγραμμα:</b> έχουν δύο ή περισσότερα σε εναλλαγή και το ένα ολοκληρώθηκε. Συνεχίζουν με τα υπόλοιπα, αλλά ίσως θέλετε να φτιάξετε το επόμενο.</li>
     <li><b>Χωρίς πρόγραμμα:</b> νέοι αθλητές που δεν έχουν πάρει ακόμα πρόγραμμα.</li></ul>
     <h4>Νέα προγράμματα σε πολλούς</h4><p>Με το κουμπί «Νέα προγράμματα» επιλέγετε πολλούς αθλητές μαζί, π.χ. όσους τελείωσαν, και τους δίνετε νέο πρόγραμμα με ένα πάτημα.
-      Η πηγή είναι είτε το προηγούμενο πρόγραμμα του καθενός, με τα κιλά της τελευταίας προπόνησης, είτε ένα πρότυπο.</p>
+      Η πηγή είναι είτε «Όσα τελείωσαν» (κάθε πρόγραμμα που ολοκλήρωσε ο αθλητής ξαναφτιάχνεται, με τα κιλά της τελευταίας προπόνησης), είτε ένα πρότυπο.</p>
     <h4>Τι κάνω από εδώ</h4><ul>
     <li>Πατήστε έναν αθλητή για να δείτε τι θα κάνει την επόμενη φορά (κιλά ανά άσκηση), την πρόοδο και το ιστορικό του.</li>
     <li>Από τη σελίδα του αθλητή γράφετε προπόνηση για λογαριασμό του, π.χ. όταν δεν έχει κινητό, ανοίγετε το πρόγραμμά του ή φτιάχνετε νέο
       με «Νέο πρόγραμμα → Αντιγραφή από»: <b>Προηγούμενο</b> (ίδιες ασκήσεις, κιλά από την τελευταία προπόνηση), <b>Άλλον αθλητή</b> ή <b>Πρότυπο</b>.</li>
     <li>Με το <b>«+ Νέος»</b> προσθέτετε αθλητή με όνομα και email.</li></ul>`],
+  rotation: ['Προγράμματα σε εναλλαγή', `<p>Ένας αθλητής μπορεί να έχει πολλά ενεργά προγράμματα, π.χ. <b>Πρόγραμμα 1 · Πόδια</b> και <b>Πρόγραμμα 2 · Στήθος</b>.
+      Η εφαρμογή του τα βγάζει <b>εναλλάξ</b>: μία φορά το ένα, την επόμενη το άλλο, όποια μέρα κι αν έρθει.</p>
+    <ul><li><span class="badge b-brand">σειρά του</span> δείχνει ποιο πρόγραμμα θα ανοίξει την επόμενη φορά. Στην καταγραφή μπορείτε να διαλέξετε άλλο.</li>
+    <li>Κάθε πρόγραμμα έχει τις δικές του προπονήσεις, προεπιλογή 4. Όταν φτάσει τις 4, <b>κλείνει μόνο του</b> και ο αθλητής συνεχίζει με όσα έμειναν.</li>
+    <li>Νέο πρόγραμμα <b>μπαίνει πάντα στην εναλλαγή</b>. Αν θέλετε να βγει ένα παλιό, ανοίξτε το και πατήστε «Κλείσιμο προγράμματος».</li>
+    <li>Ένα κλειστό πρόγραμμα ξαναμπαίνει με «Ξανά σε εναλλαγή», δίνοντας πόσες ακόμα προπονήσεις θα κάνει.</li>
+    <li>Όταν κλείσει ένα πρόγραμμα, ο αθλητής εμφανίζεται στο φίλτρο «Έκλεισε ένα πρόγραμμα» ή «Τέλος προγράμματος» της αρχικής.</li></ul>`],
   programs: ['Πρότυπα προγράμματα', `<p>Εδώ βρίσκονται μόνο τα <b>πρότυπα</b>: έτοιμα προγράμματα, π.χ. «Αρχάριοι · Δύναμη», που τα αντιγράφετε σε αθλητές.</p>
     <ul><li>Τα προγράμματα κάθε αθλητή είναι στη σελίδα του (Αθλητές → αθλητής → «Προγράμματα»).</li>
     <li>Πρότυπο φτιάχνετε με «+ Πρότυπο» ή από ένα πρόγραμμα αθλητή με «Ως πρότυπο».</li>
@@ -316,18 +324,20 @@ const HELP = {
     <li>Πρότυπο που δεν χρησιμοποιείτε πια: ανοίξτε το → <b>Απενεργοποίηση</b>. Κρύβεται από τη λίστα και την αντιγραφή, και φαίνεται στο φίλτρο «Ανενεργά». Ή <b>Διαγραφή</b> οριστικά.</li></ul>`],
   program: ['Επεξεργασία προγράμματος', `<h4>Γενικά</h4><ul><li><b>Σύνολο προπονήσεων:</b> πόσες φορές θα γίνει το πρόγραμμα. Αν ο αθλητής χάσει μέρες, συνεχίζει από εκεί που έμεινε.
       Στη σελίδα των αθλητών φαίνεται π.χ. 12/24.</li>
-    <li><b>Αρίθμηση:</b> κάθε αθλητής έχει Πρόγραμμα 1, 2, 3… Κάθε πρόγραμμα είναι μία λίστα ασκήσεων. Όταν τελειώσει, φτιάχνετε το επόμενο και παίρνει αυτόματα τον επόμενο αριθμό.</li>
+    <li><b>Αρίθμηση:</b> κάθε αθλητής έχει Πρόγραμμα 1, 2, 3… Κάθε πρόγραμμα είναι μία λίστα ασκήσεων. Πολλά ενεργά προγράμματα γίνονται εναλλάξ.</li>
+    <li><b>Κλείσιμο προγράμματος</b> (κάτω κάτω): το βγάζει από την εναλλαγή. Όταν φτάσει τις προπονήσεις του κλείνει και μόνο του.</li>
     <li>Οι αλλαγές αποθηκεύονται αμέσως, δεν υπάρχει κουμπί «Αποθήκευση».</li></ul>
     <h4>Ανά άσκηση</h4><ul><li><b>Σετ × επαναλήψεις:</b> πατήστε μια έτοιμη επιλογή, π.χ. 3×8–12 σημαίνει 3 σετ των 8 έως 12. Το «Άλλο…» ανοίγει ελεύθερα πεδία.</li>
+    <li><b>Διάρκεια:</b> σε ασκήσεις χρόνου δίνετε λεπτά και δευτερόλεπτα, π.χ. διάδρομος 20′, plank 3×45″.</li>
     <li><b>Κιλά έναρξης:</b> με τι κιλά ξεκινά την πρώτη φορά.</li>
     <li><b>Αύξηση κιλών «Αυτόματα»:</b> όταν βγάλει όλα τα σετ στις μέγιστες επαναλήψεις, την επόμενη φορά του προτείνει λίγο περισσότερα κιλά.
       Αν δυσκολευτεί δύο φορές, προτείνει λιγότερα. Μετά από απουσία κρατά τα ίδια ή κατεβάζει λίγο.</li>
     <li><b>«Σταθερά»:</b> προτείνει πάντα τα κιλά που βάλατε. Χρήσιμο για τεχνική, αποκατάσταση ή μηχανήματα με λίγα βάρη.</li>
     <li>Πατήστε το σκίτσο για να δείτε την κίνηση. Με ↑ ↓ αλλάζετε τη σειρά, με ✕ αφαιρείτε την άσκηση.</li></ul>
     <h4>Διαγραφή</h4><p>Κάτω κάτω στη σελίδα. Πρόγραμμα αθλητή διαγράφεται μόνο αν δεν έχει γίνει καμία προπόνηση, π.χ. αν φτιάχτηκε κατά λάθος. Τότε ενεργό γίνεται ξανά το προηγούμενο.</p>
-    <h4>Εκτύπωση</h4><p>Φύλλο A4, με κουτιά για σετ × επαναλήψεις και κιλά. Για αθλητές που θέλουν το πρόγραμμα σε χαρτί.</p>`],
+    <h4>Εκτύπωση</h4><p>Οι γραμμές του φύλλου ακολουθούν την άσκηση: σετ × επαναλήψεις και κιλά, μόνο επαναλήψεις, ή χρόνος. Φύλλο A4, με κουτιά για σετ × επαναλήψεις και κιλά. Για αθλητές που θέλουν το πρόγραμμα σε χαρτί.</p>`],
   workout: ['Καταγραφή προπόνησης', `<h4>Βήμα βήμα</h4><ol>
-    <li>Η εφαρμογή ανοίγει την επόμενη ημέρα του προγράμματος. Αλλάζετε ημέρα από τα κουμπιά πάνω.</li>
+    <li>Η εφαρμογή ανοίγει το πρόγραμμα που είναι σειρά του. Αν ο αθλητής έχει πολλά σε εναλλαγή, αλλάζετε από τα κουμπιά πάνω.</li>
     <li>Σε κάθε άσκηση ρυθμίστε κιλά και επαναλήψεις με τα <b>− / +</b>. Τα κιλά είναι ήδη συμπληρωμένα με την πρόταση της εφαρμογής.</li>
     <li>Για άλλη τιμή, πατήστε πάνω στον αριθμό και γράψτε την, π.χ. 17,5.</li>
     <li>Πατήστε <b>«Σετ 1 έγινε»</b> μετά από κάθε σετ. Τα επόμενα σετ παίρνουν τα ίδια κιλά.</li>
@@ -395,7 +405,7 @@ const HELP = {
     <li><b>Χωρίς λογαριασμό:</b> όσοι δεν έχουν μπει ακόμα στην εφαρμογή. Δεν βλέπουν το πρόγραμμά τους στο κινητό, γι' αυτό από εδώ το τυπώνετε σε χαρτί με το 🖨.</li>
     <li><b>Ανενεργά:</b> μέλη που σταμάτησαν. Δεν χρεώνονται και δεν χάνεται το ιστορικό τους.</li></ul>
     <h4>Νέο μέλος</h4><p>Γράψτε όνομα και email. Το μέλος φτιάχνει λογαριασμό στην αρχική σελίδα της εφαρμογής με <b>το ίδιο email</b> και συνδέεται αυτόματα με το γυμναστήριο.</p>
-    <h4>Σχόλια</h4><p>Ό,τι πρέπει να ξέρει ο προπονητής, π.χ. «έμπειρος», «πρόβλημα στο γόνατο», «έρχεται μόνο βράδυ». Φαίνονται στη λίστα μελών και με πορτοκαλί πλαίσιο στη σελίδα του αθλητή.
+    <h4>Σημειώσεις για τον προπονητή</h4><p>Ό,τι πρέπει να ξέρει όποιος τον προπονεί: εμπειρία, τραυματισμοί, περιορισμοί, ώρες που μπορεί. Φαίνονται στη λίστα μελών και με πορτοκαλί πλαίσιο στη σελίδα του αθλητή.
       Ο αθλητής δεν τα βλέπει στην εφαρμογή.</p>`],
   exercises: ['Ασκήσεις', `<ul><li><b>Του γυμναστηρίου:</b> οι ασκήσεις που μπαίνουν στα προγράμματα. Εμφανίζονται μόνο οι ενεργές· οι υπόλοιπες στο φίλτρο «Ανενεργές».</li>
     <li>Με το <b>⋯</b> δίπλα σε μια άσκηση: <b>Απενεργοποίηση</b> (κρύβεται, το ιστορικό μένει) ή <b>Διαγραφή</b>. Η διαγραφή γίνεται μόνο αν η άσκηση δεν υπάρχει σε κανένα πρόγραμμα ή προπόνηση.</li>
@@ -455,6 +465,23 @@ function shell() {
   if (mb) mb.onclick = () => sheet('Περισσότερα', extra.map(([k, l, i]) =>
     `<a class="card tap list-item" style="text-decoration:none;color:inherit" href="#/${k}" data-close>${icon(i)}<b>${l}</b></a>`).join(''));
   st.extraKeys = extra.map(t => t[0]);
+  installHint();
+}
+
+// ---------- «Βάλε την εφαρμογή στην αρχική οθόνη» (PWA) ----------
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; installHint(); });
+function installHint() {
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent), mobile = ios || /android/i.test(navigator.userAgent);
+  if (standalone || !mobile || store.get('install_hint') === 'no' || !$('header.topbar') || $('#instH')) return;
+  if (!ios && !installEvt) return;   // Android: περιμένουμε το beforeinstallprompt
+  $('header.topbar').insertAdjacentHTML('afterend', `<div class="install-hint" id="instH">${icon('dumbbell', 'sm')}
+    <span class="grow">${ios ? 'Βάλτε την εφαρμογή στην αρχική οθόνη: <b>Κοινοποίηση</b> ⬆︎ → <b>Προσθήκη στην οθόνη Αφετηρίας</b>' : 'Βάλτε την εφαρμογή στην αρχική οθόνη για να ανοίγει με ένα πάτημα'}</span>
+    ${ios ? '' : '<button class="btn small" id="instGo">Εγκατάσταση</button>'}<button class="icon-btn" id="instX" aria-label="Κλείσιμο">${icon('x', 'sm')}</button></div>`);
+  $('#instX').onclick = () => { store.set('install_hint', 'no'); $('#instH').remove(); };
+  const go = $('#instGo');
+  if (go) go.onclick = async () => { installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('#instH')?.remove(); };
 }
 
 const routes = {};
@@ -482,7 +509,7 @@ window.addEventListener('hashchange', () => { if (st.user && $('#view')) route()
 // Κοινά δεδομένα
 // =====================================================================
 async function loadProgram(programId) {
-  const p = await q(sb.from('programs').select(`id, name, seq, goal, athlete_id, is_template, total_sessions, active, notes,
+  const p = await q(sb.from('programs').select(`id, name, seq, goal, athlete_id, is_template, total_sessions, active, completed_at, notes,
     program_days(id, day_no, name, program_exercises(id, sort_order, sets, reps_min, reps_max, target_weight, target_seconds,
       auto_progress, notes, exercise_id, exercises(name, animation_code, metric_type, muscle_group, increment_kg)))`).eq('id', programId).single());
   p.program_days.sort((a, b) => a.day_no - b.day_no);
@@ -514,10 +541,9 @@ function groupBy(arr, fn) { const m = new Map(); arr.forEach(x => { const k = fn
 // =====================================================================
 routes.athletes = async view => {
   const g = st.cur.gym_id;
-  const [rows, flags, week, subs] = await Promise.all([
+  const [rows, flags, subs] = await Promise.all([
     q(sb.from('v_athlete_status').select('*').eq('gym_id', g).order('full_name')),
     q(sb.rpc('athlete_flags', { p_gym: g })),
-    q(sb.from('workout_sessions').select('id').eq('gym_id', g).gte('performed_on', addDays(todayISO(), -6))),
     q(sb.rpc('sub_status', { p_gym: g }))
   ]);
   const F = Object.fromEntries(flags.map(f => [f.athlete_id, f])), SS = Object.fromEntries(subs.map(x => [x.member_id, x]));
@@ -526,28 +552,27 @@ routes.athletes = async view => {
     r.attention = (r.days_absent == null || r.days_absent > 10) || f.n_stall > 0 || f.n_decrease > 0;
     r.f = f; r.pct = r.program_total ? Math.min(100, Math.round(100 * r.program_done / r.program_total)) : 0;
   });
-  const isDone = r => r.program_total && r.program_done >= r.program_total;
+  const isDone = r => !r.active_programs && r.to_renew > 0, isPart = r => r.active_programs > 0 && r.to_renew > 0,
+    noProg = r => !r.active_programs && !r.to_renew;
   const today = rows.filter(r => r.days_absent === 0).length, attn = rows.filter(r => r.attention).length;
   let filter = 'all', search = '';
   view.innerHTML = `
     <div class="head-row"><h1>Αθλητές ${help('athletes')}</h1><div class="row nowrap" style="gap:6px">
       <button class="btn secondary small" id="bulk" title="Νέα προγράμματα σε πολλούς αθλητές">${icon('clip', 'sm')}<span class="hide-sm">Νέα προγράμματα</span></button>
       <button class="btn small" id="addA">${icon('plus', 'sm')}Νέος</button></div></div>
-    <div class="kpis"><div class="kpi accent"><b>${today}</b><span>προπονήθηκαν σήμερα</span></div>
-      <div class="kpi"><b>${week.length}</b><span>προπονήσεις 7 ημ.</span></div>
-      <div class="kpi"><b style="color:${attn ? 'var(--bad)' : 'inherit'}">${attn}</b><span>θέλουν προσοχή</span></div></div>
     <div class="search">${icon('search', 'sm')}<input id="q" placeholder="Αναζήτηση αθλητή"></div>
     <div class="chips" id="flt">
       <button class="chip active" data-f="all">Όλοι <span class="badge b-muted">${rows.length}</span></button>
       <button class="chip" data-f="attn">Θέλουν προσοχή <span class="badge b-bad">${attn}</span></button>
       <button class="chip" data-f="today">Σήμερα <span class="badge b-ok">${today}</span></button>
       <button class="chip" data-f="done">Τέλος προγράμματος <span class="badge b-info">${rows.filter(isDone).length}</span></button>
-      <button class="chip" data-f="noprog">Χωρίς πρόγραμμα <span class="badge b-muted">${rows.filter(r => !r.program_total).length}</span></button>
+      <button class="chip" data-f="part">Έκλεισε ένα πρόγραμμα <span class="badge b-info">${rows.filter(isPart).length}</span></button>
+      <button class="chip" data-f="noprog">Χωρίς πρόγραμμα <span class="badge b-muted">${rows.filter(noProg).length}</span></button>
     </div>
     <div class="grid cols-2" id="list"></div>`;
   const draw = () => {
     const list = rows.filter(r => (filter === 'all' || (filter === 'attn' && r.attention) || (filter === 'today' && r.days_absent === 0)
-      || (filter === 'done' && isDone(r)) || (filter === 'noprog' && !r.program_total))
+      || (filter === 'done' && isDone(r)) || (filter === 'part' && isPart(r)) || (filter === 'noprog' && noProg(r)))
       && r.full_name.toLowerCase().includes(search));
     $('#list').innerHTML = list.map(r => {
       const d = r.days_absent, cls = d == null ? 'b-muted' : d > 21 ? 'b-bad' : d > 10 ? 'b-warn' : d === 0 ? 'b-ok' : 'b-muted';
@@ -558,12 +583,13 @@ routes.athletes = async view => {
       const sb0 = SS[r.athlete_id];
       if (sb0 && sb0.status !== 'active') tags.push(`<span class="badge ${SUB[sb0.status][0]}">${icon('wallet', 'sm')}${SUB[sb0.status][1]}</span>`);
       if (sb0 && sb0.has_debt && st.cur.is_owner) tags.push(`<span class="badge b-bad">Οφειλή</span>`);
-      if (r.program_total && r.program_done >= r.program_total) tags.push(`<span class="badge b-info">${icon('clip', 'sm')}Τέλος προγράμματος</span>`);
+      if (isDone(r)) tags.push(`<span class="badge b-info">${icon('clip', 'sm')}Τέλος προγράμματος</span>`);
+      else if (isPart(r)) tags.push(`<span class="badge b-info">${icon('clip', 'sm')}Έκλεισε ${r.to_renew === 1 ? 'ένα' : r.to_renew} πρόγρ.</span>`);
       return `<a class="card tap" href="#/athlete/${r.athlete_id}" style="text-decoration:none;color:inherit">
         <div class="list-item">${avatar(r.full_name)}<div class="grow"><div class="row between nowrap"><b class="ellipsis">${esc(r.full_name)}</b>
           <span class="badge ${cls}">${relDays(d)}</span></div>
           <div class="row nowrap small muted" style="margin-top:6px"><div class="meter grow"><i style="width:${r.pct}%;background:${r.pct >= 100 ? 'var(--ok)' : 'var(--brand)'}"></i></div>
-            <span>${r.program_total ? `${r.program_done}/${r.program_total} προπ.` : 'χωρίς πρόγραμμα'}</span></div>
+            <span>${r.program_total ? `${r.active_programs > 1 ? r.active_programs + ' πρόγρ. · ' : ''}${r.program_done}/${r.program_total} προπ.` : 'χωρίς ενεργό πρόγραμμα'}</span></div>
           ${tags.length ? `<div class="row" style="margin-top:8px;gap:6px">${tags.join('')}</div>` : ''}</div></div></a>`;
     }).join('') || '<div class="card empty">Κανένας αθλητής</div>';
   };
@@ -577,90 +603,124 @@ routes.athletes = async view => {
 // Νέα προγράμματα σε πολλούς αθλητές μαζί (π.χ. όσους τελείωσαν το πρόγραμμά τους)
 async function bulkPrograms(rows) {
   const g = st.cur.gym_id;
-  const [templates, active] = await Promise.all([
+  const [templates, closed] = await Promise.all([
     q(sb.from('programs').select('id, name').eq('gym_id', g).eq('is_template', true).eq('active', true).order('name')),
-    q(sb.from('programs').select('id, athlete_id').eq('gym_id', g).eq('active', true))]);
-  const actOf = Object.fromEntries(active.filter(p => p.athlete_id).map(p => [p.athlete_id, p.id]));
-  const done = r => r.program_total && r.program_done >= r.program_total;
-  const pick = new Set(rows.filter(r => done(r) || !r.program_total).map(r => r.athlete_id));
+    q(sb.from('programs').select('id, athlete_id, seq, completed_at, source_program_id').eq('gym_id', g).not('athlete_id', 'is', null))]);
+  const renewed = new Set(closed.map(p => p.source_program_id).filter(Boolean)), since = Date.now() - 60 * 864e5;
+  const toRenew = groupBy(closed.filter(p => p.completed_at && Date.parse(p.completed_at) > since && !renewed.has(p.id)), p => p.athlete_id);
+  const pick = new Set(rows.filter(r => r.to_renew > 0 || !r.active_programs).map(r => r.athlete_id));
   let src = 'prev';
   sheet('Νέα προγράμματα σε πολλούς', `
     <label class="tiny">Αντιγραφή από</label>
-    <div class="seg" id="bs"><button data-s="prev" class="active">Το προηγούμενο του καθενός</button><button data-s="tpl">Πρότυπο</button></div>
+    <div class="seg" id="bs"><button data-s="prev" class="active">Όσα τελείωσαν</button><button data-s="tpl">Πρότυπο</button></div>
+    <p class="tiny muted" id="bh">Κάθε πρόγραμμα που ολοκλήρωσε ο αθλητής ξαναφτιάχνεται ως νέο, με κιλά από την τελευταία προπόνηση.</p>
     <div id="bt" style="display:none" class="field"><select id="tplSel">${templates.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('') || '<option value="">Δεν υπάρχουν πρότυπα</option>'}</select></div>
-    <div class="field"><label>Σύνολο προπονήσεων</label><input id="btot" type="number" min="1" max="200" value="12"></div>
+    <div class="field"><label>Προπονήσεις ανά πρόγραμμα</label><input id="btot" type="number" min="1" max="200" value="4"></div>
     <div class="row between"><label class="tiny">Αθλητές</label><span class="tiny muted">προεπιλογή: όσοι τελείωσαν ή δεν έχουν πρόγραμμα</span></div>
-    <div class="card rows" id="bl">${rows.map(r => `<label class="mrow"><input type="checkbox" data-a="${r.athlete_id}" ${pick.has(r.athlete_id) ? 'checked' : ''}>
-      <b class="grow">${esc(r.full_name)}</b><span class="tiny muted">${r.program_total ? `Πρόγρ. ${r.program_seq || ''} · ${r.program_done}/${r.program_total}` : 'χωρίς πρόγραμμα'}</span></label>`).join('')}</div>
+    <div class="card rows" id="bl">${rows.map(r => { const n = (toRenew.get(r.athlete_id) || []).length;
+      return `<label class="mrow"><input type="checkbox" data-a="${r.athlete_id}" ${pick.has(r.athlete_id) ? 'checked' : ''}>
+      <b class="grow">${esc(r.full_name)}</b><span class="tiny muted">${n ? `τελείωσαν ${n}` : r.active_programs ? `${r.active_programs} ενεργά` : 'χωρίς πρόγραμμα'}</span></label>`; }).join('')}</div>
     <button class="btn block" id="bgo"></button>`, (el, close) => {
-    const upd = () => { const n = $$('[data-a]:checked', el).length; $('#bgo', el).textContent = `Δημιουργία ${n} προγραμμάτων`; $('#bgo', el).disabled = !n; };
+    const upd = () => { const n = $$('[data-a]:checked', el).length; $('#bgo', el).textContent = `Δημιουργία για ${n} αθλητές`; $('#bgo', el).disabled = !n; };
     $$('#bs button', el).forEach(b => b.onclick = () => { src = b.dataset.s; $$('#bs button', el).forEach(x => x.classList.toggle('active', x === b));
-      $('#bt', el).style.display = src === 'tpl' ? '' : 'none'; });
+      $('#bt', el).style.display = src === 'tpl' ? '' : 'none'; $('#bh', el).style.display = src === 'prev' ? '' : 'none'; });
     $$('[data-a]', el).forEach(c => c.onchange = upd); upd();
     $('#bgo', el).onclick = async () => {
-      const ids = $$('[data-a]:checked', el).map(c => c.dataset.a), total = num($('#btot', el).value) || 12, tpl = $('#tplSel', el).value;
+      const ids = $$('[data-a]:checked', el).map(c => c.dataset.a), total = num($('#btot', el).value) || 4, tpl = $('#tplSel', el).value;
       if (src === 'tpl' && !tpl) return toast('Δεν υπάρχει πρότυπο', true);
-      $('#bgo', el).disabled = true; let ok = 0, skipped = 0;
+      $('#bgo', el).disabled = true; let ok = 0, skipped = 0, k = 0;
       for (const a of ids) {
-        $('#bgo', el).textContent = `Δημιουργία… ${ok + skipped + 1}/${ids.length}`;
+        $('#bgo', el).textContent = `Δημιουργία… ${++k}/${ids.length}`;
         try {
-          if (src === 'tpl') { await copyProgram(tpl, a, { total }); ok++; }
-          else if (actOf[a]) {
-            const sugg = await q(sb.rpc('suggest_progression', { p_athlete: a }));
-            await copyProgram(actOf[a], a, { total, weights: Object.fromEntries(sugg.map(x => [x.program_exercise_id, x.suggested_weight ?? x.last_weight])) }); ok++;
-          } else skipped++;
+          if (src === 'tpl') { await copyProgram(tpl, a, { total }); ok++; continue; }
+          const list = (toRenew.get(a) || []).sort((x, y) => x.seq - y.seq);
+          if (!list.length) { skipped++; continue; }
+          for (const p of list) { await copyProgram(p.id, a, { total, weights: await lastWeights(p.id) }); ok++; }
         } catch { skipped++; }
       }
-      close(); toast(`Δημιουργήθηκαν ${ok} προγράμματα${skipped ? ` · ${skipped} χωρίς προηγούμενο πρόγραμμα` : ''}`); route();
+      close(); toast(`Δημιουργήθηκαν ${ok} προγράμματα${skipped ? ` · ${skipped} αθλητές χωρίς πρόγραμμα που τελείωσε` : ''}`); route();
     };
   });
 }
+// Κιλά της τελευταίας προπόνησης ανά άσκηση ενός προγράμματος (για «Αντιγραφή από προηγούμενο»)
+async function lastWeights(programId) {
+  const src = await loadProgram(programId), ids = src.exercisesAll.map(pe => pe.id);
+  if (!ids.length) return {};
+  const sets = await q(sb.from('workout_sets').select('program_exercise_id, weight, session_id, created_at').in('program_exercise_id', ids)
+    .order('created_at', { ascending: false }).limit(500));
+  const W = {}, sess = {};
+  for (const x of sets) { if (x.weight == null) continue;
+    if (!sess[x.program_exercise_id]) sess[x.program_exercise_id] = x.session_id;
+    if (sess[x.program_exercise_id] === x.session_id) W[x.program_exercise_id] = Math.max(W[x.program_exercise_id] || 0, +x.weight); }
+  return W;
+}
 
 routes.athlete = async (view, id) => {
-  const [m, sugg, pid, stat] = await Promise.all([
+  const owner = st.cur.is_owner;
+  const [m, sugg, stat, subs] = await Promise.all([
     q(sb.from('gym_members').select('*').eq('id', id).single()),
     q(sb.rpc('suggest_progression', { p_athlete: id })),
-    activeProgramId(id),
-    q(sb.from('v_athlete_status').select('*').eq('athlete_id', id))
+    q(sb.from('v_athlete_status').select('*').eq('athlete_id', id)),
+    q(sb.rpc('sub_status', { p_gym: st.cur.gym_id }))
   ]);
-  const s0 = stat[0] || {};
+  const s0 = stat[0] || {}, PL = s0.programs || [], sub = subs.find(x => x.member_id === id) || { status: 'none' };
   const flagged = sugg.filter(s => ['deload', 'decrease', 'stall'].includes(s.status));
   let tab = 'sugg';
   view.innerHTML = `
     <p class="small"><a href="#/athletes" class="row nowrap" style="gap:2px;text-decoration:none">${icon('left', 'sm')}Αθλητές</a></p>
     <div class="card"><div class="list-item">${avatar(m.full_name, 'lg')}<div class="grow">
-      <h1 style="margin:0">${esc(m.full_name)}</h1><div class="muted small">${esc(m.goal || 'Χωρίς στόχο')}</div></div>
-      <button class="icon-btn" id="editM" title="Στοιχεία & σχόλια" aria-label="Στοιχεία και σχόλια">${icon('cog', 'sm')}</button></div>
+      <h1 style="margin:0">${esc(m.full_name)}</h1><div class="muted small">${esc(m.goal || 'Χωρίς στόχο')} · τελευταία φορά ${relDays(s0.days_absent)}</div></div>
+      <button class="icon-btn" id="editM" title="Στοιχεία & σημειώσεις" aria-label="Στοιχεία και σημειώσεις">${icon('cog', 'sm')}</button></div>
       ${m.notes ? `<div class="note-box">${icon('alert', 'sm')}<span>${esc(m.notes)}</span></div>` : ''}
-      <div class="kpis" style="margin:14px 0 10px"><div class="kpi"><b>${s0.program_total ? `${s0.program_done}/${s0.program_total}` : '–'}</b><span>προπονήσεις προγράμματος</span></div><div class="kpi"><b class="small" style="font-size:16px">${relDays(s0.days_absent)}</b><span>τελευταία φορά</span></div></div>
-      <a class="btn block" href="#/log/${id}">${icon('play', 'sm')}Καταγραφή προπόνησης</a>
-      <div class="row nowrap" style="margin-top:8px">
-        ${pid ? `<a class="btn secondary grow" href="#/program/${pid}">${icon('clip', 'sm')}Πρόγραμμα ${s0.program_seq || ''}</a>` : ''}
-        <button class="btn ${pid ? 'ghost' : 'secondary'} grow" id="newProg">${icon('plus', 'sm')}Νέο πρόγραμμα</button></div></div>
+      <a class="btn block" href="#/log/${id}" style="margin-top:12px">${icon('play', 'sm')}Καταγραφή προπόνησης</a></div>
+
+    <div class="row between nowrap" style="margin:4px 0 8px"><h2 style="margin:0">Προγράμματα ${help('rotation')}</h2>
+      <button class="btn secondary small" id="newProg">${icon('plus', 'sm')}Νέο πρόγραμμα</button></div>
+    <div class="card rows">${PL.map(x => { const pct = Math.min(100, Math.round(100 * x.done / x.total));
+      return `<a class="mrow" href="#/program/${x.id}" style="text-decoration:none;color:inherit">
+        <div class="logo" style="background:var(--brand-soft);color:var(--brand);width:34px;height:34px">${icon('clip', 'sm')}</div>
+        <div class="grow" style="min-width:0"><div class="row nowrap" style="gap:6px"><b>${esc(x.name)}</b>${x.next && PL.length > 1 ? '<span class="badge b-brand">σειρά του</span>' : ''}</div>
+          <div class="row nowrap tiny muted" style="gap:8px;margin-top:4px"><div class="meter grow"><i style="width:${pct}%"></i></div><span>${x.done}/${x.total} προπονήσεις</span></div></div>
+        ${icon('right', 'sm')}</a>`; }).join('') ||
+      `<div class="empty">${s0.to_renew ? 'Ολοκλήρωσε τα προγράμματά του. Φτιάξτε νέο με «Νέο πρόγραμμα → Προηγούμενο».' : 'Κανένα ενεργό πρόγραμμα'}</div>`}</div>
+    ${PL.length > 1 ? '<p class="tiny muted" style="margin:-6px 0 12px">Εναλλάσσονται με τη σειρά, όποια μέρα κι αν έρθει.</p>' : ''}
+    ${s0.to_renew && PL.length ? `<p class="small" style="margin:-4px 0 12px"><span class="badge b-info">${icon('clip', 'sm')}${s0.to_renew === 1 ? 'Έκλεισε 1 πρόγραμμα' : 'Έκλεισαν ' + s0.to_renew + ' προγράμματα'}</span>
+      <span class="muted">· συνεχίζει με τα υπόλοιπα</span></p>` : ''}
+
+    <h2 style="margin:4px 0 8px">Συνδρομή</h2>
+    <div class="card row between nowrap" ${owner ? 'id="subC" style="cursor:pointer"' : ''}><div class="grow" style="min-width:0">
+      <span class="badge ${SUB[sub.status][0]}">${SUB[sub.status][1]}</span>${sub.has_debt && owner ? ' <span class="badge b-bad">Οφειλή</span>' : ''}
+      <div class="small muted" style="margin-top:4px">${esc(subLine(sub))}</div></div>${owner ? icon('right', 'sm') : ''}</div>
+
     ${flagged.length ? `<div class="card" style="border-color:var(--warn-line);background:var(--warn-soft)"><div class="row nowrap">${icon('alert')}<b>Χρειάζεται προσοχή</b></div>
       <div class="small" style="margin-top:6px">${[...new Map(flagged.map(f => [f.status, f])).values()].map(f =>
         `<div>• ${esc(f.reason)} <span class="muted">(${flagged.filter(x => x.status === f.status).length} ασκήσεις)</span></div>`).join('')}</div></div>` : ''}
-    <div class="seg" id="seg"><button data-t="sugg" class="active">Επόμενη προπόνηση</button><button data-t="prog">Πρόοδος</button><button data-t="hist">Ιστορικό</button><button data-t="progs">Προγράμματα</button></div>
+    <div class="seg" id="seg"><button data-t="sugg" class="active">Επόμενη προπόνηση</button><button data-t="prog">Πρόοδος</button><button data-t="hist">Ιστορικό</button><button data-t="progs">Όλα τα προγρ.</button></div>
     <div id="tabc"></div>`;
   $('#newProg').onclick = () => createProgramFor(id);
   $('#editM').onclick = () => memberSheet(m, () => route());
+  if ($('#subC')) $('#subC').onclick = async () => { const D = await SUBS.load();
+    if (!D.members.some(x => x.id === id)) D.members.push({ id, full_name: m.full_name, email: m.email, phone: m.phone });
+    SUBS.memberSheet(id, D); };
   const draw = async () => {
     destroyCharts(); const el = $('#tabc');
-    if (tab === 'sugg') el.innerHTML = suggList(sugg);
+    if (tab === 'sugg') el.innerHTML = suggList(sugg.filter(x => !s0.next_program_id || PL.length < 2 || x.program_day === (PL.find(y => y.next) || {}).name), true);
     if (tab === 'prog') await renderProgress(el, id);
     if (tab === 'hist') await renderHistory(el, id, 15);
     if (tab === 'progs') {
-      const ps = await q(sb.from('programs').select('id, seq, name, total_sessions, active, start_date, end_date, program_days(workout_sessions(id))')
+      const ps = await q(sb.from('programs').select('id, seq, name, total_sessions, active, completed_at, start_date, end_date, program_days(workout_sessions(id))')
         .eq('athlete_id', id).order('seq', { ascending: false }));
       el.innerHTML = `<div class="card rows">${ps.map(x => { const done = (x.program_days || []).reduce((a, d) => a + (d.workout_sessions || []).length, 0);
-        return `<a class="mrow" href="#/program/${x.id}" style="text-decoration:none;color:inherit"><div class="grow"><b>Πρόγραμμα ${x.seq || ''}</b>
-          ${x.active ? '<span class="badge b-ok">ενεργό</span>' : ''}<div class="tiny muted">${fmtDate(x.start_date)}${x.end_date ? ' – ' + fmtDate(x.end_date) : ''} · ${done}/${x.total_sessions} προπονήσεις</div></div>
+        return `<a class="mrow" href="#/program/${x.id}" style="text-decoration:none;color:inherit"><div class="grow"><b>${esc(x.name)}</b>
+          ${progBadge(x)}<div class="tiny muted">${fmtDate(x.start_date)}${x.end_date ? ' – ' + fmtDate(x.end_date) : ''} · ${done}/${x.total_sessions} προπονήσεις</div></div>
           ${icon('right', 'sm')}</a>`; }).join('') || '<div class="empty">Κανένα πρόγραμμα ακόμα</div>'}</div>`;
     }
   };
   $$('#seg button').forEach(b => b.onclick = () => { tab = b.dataset.t; $$('#seg button').forEach(x => x.classList.toggle('active', x === b)); draw(); });
   draw();
 };
+const progBadge = x => x.is_template ? '<span class="badge b-info">Πρότυπο</span>' : x.active ? '<span class="badge b-ok">ενεργό</span>'
+  : x.completed_at ? '<span class="badge b-muted">ολοκληρώθηκε</span>' : '<span class="badge b-muted">κλειστό</span>';
 
 function suggList(sugg) {
   if (!sugg.length) return '<div class="card empty">Δεν υπάρχει ενεργό πρόγραμμα</div>';
@@ -682,21 +742,22 @@ async function createProgramFor(athleteId) {
   const g = st.cur.gym_id;
   const [templates, cur, others] = await Promise.all([
     q(sb.from('programs').select('id, name, total_sessions').eq('gym_id', g).eq('is_template', true).eq('active', true).order('name')),
-    q(sb.from('programs').select('id, seq, name, total_sessions').eq('athlete_id', athleteId).order('seq', { ascending: false }).limit(1)),
+    q(sb.from('programs').select('id, seq, name, active, completed_at, total_sessions').eq('athlete_id', athleteId).order('seq', { ascending: false }).limit(8)),
     q(sb.from('programs').select('id, seq, athlete_id, total_sessions').eq('gym_id', g).eq('active', true))]);
   const mem = await q(sb.from('gym_members').select('id, full_name').eq('gym_id', g).eq('is_athlete', true).eq('status', 'active').order('full_name'));
   const names = Object.fromEntries(mem.map(m => [m.id, m.full_name]));
   const prev = cur[0], oth = others.filter(p => p.athlete_id && p.athlete_id !== athleteId && names[p.athlete_id]);
-  let total = prev?.total_sessions || 12;
-  sheet('Νέο πρόγραμμα', `
-    <div class="field"><label>Σύνολο προπονήσεων</label><input id="tot" type="number" min="1" max="200" inputmode="numeric" value="${total}"></div>
+  let total = 4;
+  const nAct = cur.filter(p => p.active).length;
+  sheet('Νέο πρόγραμμα', `${nAct ? `<p class="small muted" style="margin-top:0">Μπαίνει στην εναλλαγή μαζί με τα ${nAct} ενεργά προγράμματα. Τα παλιά κλείνουν μόνα τους όταν ολοκληρωθούν, ή χειροκίνητα από τη σελίδα τους.</p>` : ''}
+    <div class="field"><label>Προπονήσεις</label><input id="tot" type="number" min="1" max="200" inputmode="numeric" value="${total}"></div>
     <label class="tiny">Αντιγραφή από</label>
     <div class="seg" id="src"><button data-s="prev" ${prev ? '' : 'disabled'} class="${prev ? 'active' : ''}">Προηγούμενο</button>
       <button data-s="ath">Άλλον αθλητή</button><button data-s="tpl" class="${prev ? '' : 'active'}">Πρότυπο</button></div>
     <div id="opts"></div>
     <button class="btn ghost block" id="blank" style="margin-top:8px">${icon('plus', 'sm')}Κενό πρόγραμμα</button>`, (el, close) => {
     const go = async (srcId, weights) => {
-      close(); total = num($('#tot', el).value) || 12;
+      close(); total = num($('#tot', el).value) || 4;
       const id = srcId ? await copyProgram(srcId, athleteId, { total, weights })
         : (await q(sb.from('programs').insert({ gym_id: g, athlete_id: athleteId, coach_id: st.cur.member_id, name: null, total_sessions: total }).select('id').single())).id;
       location.hash = '#/program/' + id;
@@ -705,12 +766,10 @@ async function createProgramFor(athleteId) {
       $$('#src button', el).forEach(b => b.classList.toggle('active', b.dataset.s === k));
       const O = $('#opts', el);
       if (k === 'prev') {
-        O.innerHTML = `<button class="card tap list-item" id="pv" style="width:100%;text-align:left">${icon('clip')}<div class="grow"><b>${esc(progTitle(prev))}</b>
-          <div class="small muted">Ίδιες ασκήσεις, κιλά έναρξης από την τελευταία προπόνηση</div></div>${icon('right', 'sm')}</button>`;
-        $('#pv', O).onclick = async () => {
-          const sugg = await q(sb.rpc('suggest_progression', { p_athlete: athleteId }));
-          go(prev.id, Object.fromEntries(sugg.map(x => [x.program_exercise_id, x.suggested_weight ?? x.last_weight])));
-        };
+        O.innerHTML = `<p class="tiny muted" style="margin:0 0 6px">Ίδιες ασκήσεις, κιλά έναρξης από την τελευταία προπόνηση.</p>` + cur.map(x =>
+          `<button class="card tap list-item" data-pv="${x.id}" style="width:100%;text-align:left;margin-bottom:8px;padding:10px">${icon('clip')}<div class="grow"><b>${esc(progTitle(x))}</b>
+          ${progBadge(x)}</div>${icon('right', 'sm')}</button>`).join('');
+        $$('[data-pv]', O).forEach(b => b.onclick = async () => go(b.dataset.pv, await lastWeights(b.dataset.pv)));
       } else if (k === 'ath') {
         O.innerHTML = `<div class="search">${icon('search', 'sm')}<input id="as" placeholder="Όνομα αθλητή" autocomplete="off"></div><div id="al"></div>`;
         const list = t => { $('#al', O).innerHTML = oth.filter(p => names[p.athlete_id].toLowerCase().includes(t)).slice(0, 10).map(p =>
@@ -734,7 +793,8 @@ async function copyProgram(srcId, athleteId, opts = {}) {
   const src = await loadProgram(srcId);
   const np = await q(sb.from('programs').insert({ gym_id: st.cur.gym_id, athlete_id: athleteId || null, coach_id: st.cur.member_id,
     is_template: !athleteId, name: athleteId ? null : (opts.name || progTitle(src) + ' (πρότυπο)'),
-    goal: src.goal, total_sessions: opts.total || src.total_sessions }).select('id').single());
+    goal: src.goal, total_sessions: opts.total || src.total_sessions,
+    source_program_id: athleteId && src.athlete_id === athleteId ? src.id : null }).select('id').single());
   const nd = await q(sb.from('program_days').insert({ gym_id: st.cur.gym_id, program_id: np.id, day_no: 1, name: 'Προπόνηση' }).select('id').single());
   const W = opts.weights || {};
   if (src.exercisesAll.length) await q(sb.from('program_exercises').insert(src.exercisesAll.map((pe, i) => ({
@@ -765,11 +825,11 @@ routes.programs = async view => {
   };
   draw();
   $('#newTpl').onclick = () => sheet('Νέο πρότυπο', `<form id="tf"><div class="field"><label>Όνομα</label><input name="n" required placeholder="π.χ. Αρχάριοι · Δύναμη"></div>
-    <div class="field"><label>Σύνολο προπονήσεων</label><input name="t" type="number" min="1" max="200" value="12"></div>
+    <div class="field"><label>Προπονήσεις</label><input name="t" type="number" min="1" max="200" value="4"></div>
     <button class="btn block">Δημιουργία</button></form>`, (el, close) => {
     $('#tf', el).onsubmit = async e => { e.preventDefault(); close();
       const p = await q(sb.from('programs').insert({ gym_id: st.cur.gym_id, coach_id: st.cur.member_id, is_template: true,
-        name: e.target.n.value.trim(), total_sessions: num(e.target.t.value) || 12 }).select('id').single());
+        name: e.target.n.value.trim(), total_sessions: num(e.target.t.value) || 4 }).select('id').single());
       location.hash = '#/program/' + p.id; };
   });
 };
@@ -791,10 +851,10 @@ function exercisePicker(exs, onPick) {
 const PRESETS = {
   reps_weight: [[3, 8, 12], [4, 6, 8], [5, 5, 5], [3, 12, 15], [3, 15, 20]],
   reps: [[3, 10, 10], [3, 15, 15], [3, 20, 20], [4, 12, 12]],
-  time: [[3, 30], [3, 45], [3, 60], [2, 90]],
+  time: [[3, 30], [3, 45], [3, 60], [1, 600], [1, 1200], [1, 1800]],
   distance: [[1, 1, 1], [3, 1, 1]]
 };
-function presetLabel(m, x) { return m === 'time' ? `${x[0]}×${x[1]}″` : `${x[0]}×${x[1] === x[2] ? x[1] : x[1] + '–' + x[2]}`; }
+function presetLabel(m, x) { return m === 'time' ? (x[0] > 1 ? `${x[0]}×${dur(x[1])}` : dur(x[1])) : `${x[0]}×${x[1] === x[2] ? x[1] : x[1] + '–' + x[2]}`; }
 function presetMatch(pe, x) {
   return pe.exercises.metric_type === 'time' ? pe.sets === x[0] && pe.target_seconds === x[1]
     : pe.sets === x[0] && pe.reps_min === x[1] && (pe.reps_max ?? pe.reps_min) === x[2];
@@ -813,7 +873,8 @@ routes.program = async (view, programId) => {
     return `<div class="chips" style="margin:8px 0 0">${ps.map((x, k) => `<button class="chip ${presetMatch(pe, x) ? 'active' : ''}" data-preset="${k}">${presetLabel(m, x)}</button>`).join('')}
         <button class="chip ${hit ? '' : 'active'}" data-other>Άλλο…</button></div>
       <div class="form-grid pe-custom" style="grid-template-columns:repeat(auto-fit,minmax(70px,1fr));margin-top:8px;${hit ? 'display:none' : ''}">
-        ${m === 'time' ? f('sets', 'Σετ') + f('target_seconds', 'Δευτ.') : f('sets', 'Σετ') + f('reps_min', 'Επαν. από') + f('reps_max', 'έως')}</div>
+        ${m === 'time' ? f('sets', 'Σετ') + `<div><label class="tiny">Λεπτά</label><input type="number" inputmode="numeric" min="0" data-t="m" value="${pe.target_seconds ? Math.floor(pe.target_seconds / 60) : ''}"></div>
+          <div><label class="tiny">Δευτ.</label><input type="number" inputmode="numeric" min="0" max="59" data-t="s" value="${pe.target_seconds ? pe.target_seconds % 60 : ''}"></div>` : f('sets', 'Σετ') + f('reps_min', 'Επαν. από') + f('reps_max', 'έως')}</div>
       ${m === 'reps_weight' ? `<div class="row nowrap" style="margin-top:10px;gap:10px">
         <div style="width:110px"><label class="tiny">Κιλά έναρξης</label><input type="number" inputmode="decimal" step="0.5" data-f="target_weight" value="${pe.target_weight ?? ''}" placeholder="–"></div>
         <div class="grow"><label class="tiny">Αύξηση κιλών</label><div class="seg mini" data-auto>
@@ -821,14 +882,14 @@ routes.program = async (view, programId) => {
   };
   view.innerHTML = `
     <p class="small"><a href="${back[0]}" class="row nowrap" style="gap:2px;text-decoration:none">${icon('left', 'sm')}${esc(back[1])}</a></p>
-    <h1 style="margin-bottom:8px">${esc(progTitle(p))} ${p.is_template ? '<span class="badge b-info">Πρότυπο</span>' : p.active ? '<span class="badge b-ok">ενεργό</span>' : '<span class="badge b-muted">ολοκληρωμένο</span>'} ${help('program')}</h1>
+    <h1 style="margin-bottom:8px">${esc(progTitle(p))} ${progBadge(p)} ${help('program')}</h1>
     <div class="card"><div class="row between"><span class="small muted">${athlete ? esc(athlete.full_name) : 'Αντιγράφεται σε αθλητές από τη σελίδα τους'}</span>
       <div class="row nowrap" style="gap:6px"><button class="btn secondary small" id="printP">${icon('print', 'sm')}Εκτύπωση</button>
       ${!p.is_template ? `<button class="btn ghost small" id="saveTpl">Ως πρότυπο</button>` : ''}</div></div>
       <div class="form-grid" style="margin-top:10px">
         ${p.is_template ? `<div class="field"><label>Όνομα</label><input data-pf="name" value="${esc(p.name)}"></div>` : ''}
         <div class="field"><label>Στόχος</label><input data-pf="goal" value="${esc(p.goal || '')}"></div>
-        <div class="field"><label>Σύνολο προπονήσεων</label><input data-pf="total_sessions" type="number" min="1" max="200" inputmode="numeric" value="${p.total_sessions}"></div>
+        <div class="field"><label>Προπονήσεις</label><input data-pf="total_sessions" type="number" min="1" max="200" inputmode="numeric" value="${p.total_sessions}"></div>
       </div>
       <p class="tiny muted" style="margin:6px 0 0">Το πρόγραμμα γίνεται όσες φορές ορίσετε. Αν ο αθλητής χάσει μέρες, συνεχίζει από εκεί που έμεινε. Μετά φτιάχνετε το επόμενο πρόγραμμα.</p></div>
     ${[p.day].map(d => `
@@ -844,7 +905,8 @@ routes.program = async (view, programId) => {
         <button class="btn ghost block" data-add="${d.id}" style="margin-top:10px">${icon('plus', 'sm')}Προσθήκη άσκησης</button>
       </div>`).join('')}
     <div class="row" style="gap:8px;margin-top:4px">
-      ${p.is_template ? `<button class="btn secondary small grow" id="tplAct">${p.active ? 'Απενεργοποίηση προτύπου' : 'Ενεργοποίηση προτύπου'}</button>` : ''}
+      ${p.is_template ? `<button class="btn secondary small grow" id="tplAct">${p.active ? 'Απενεργοποίηση προτύπου' : 'Ενεργοποίηση προτύπου'}</button>`
+        : `<button class="btn secondary small grow" id="progAct">${p.active ? 'Κλείσιμο προγράμματος' : 'Ξανά σε εναλλαγή'}</button>`}
       <button class="btn ghost small grow" id="delProg" style="color:var(--bad)">${icon('x', 'sm')}Διαγραφή ${p.is_template ? 'προτύπου' : 'προγράμματος'}</button></div>`;
 
   const bindPe = box => {
@@ -859,6 +921,9 @@ routes.program = async (view, programId) => {
       Object.assign(pe, patch); q(sb.from('program_exercises').update(patch).eq('id', pe.id)).then(saved);
     });
     $$('[data-auto] button', box).forEach(b => b.onclick = () => upd({ auto_progress: b.dataset.v === '1' }));
+    $$('[data-t]', box).forEach(i => i.onchange = () => {
+      const mm = num($('[data-t="m"]', box).value) || 0, ss = num($('[data-t="s"]', box).value) || 0, tot = mm * 60 + ss;
+      pe.target_seconds = tot || null; q(sb.from('program_exercises').update({ target_seconds: tot || null }).eq('id', pe.id)).then(saved); });
   };
   $$('[data-pe]', view).forEach(bindPe);
   $$('[data-pf]', view).forEach(i => i.onchange = () =>
@@ -882,6 +947,16 @@ routes.program = async (view, programId) => {
     route();
   }));
   $('#printP').onclick = () => printProgram(p, athlete);
+  const pa = $('#progAct');
+  if (pa) pa.onclick = () => p.active
+    ? confirmSheet('Κλείσιμο προγράμματος', 'Βγαίνει από την εναλλαγή. Ο αθλητής συνεχίζει με τα υπόλοιπα ενεργά προγράμματα. Μπορείτε να το ξανανοίξετε.', 'Κλείσιμο', async () => {
+        await q(sb.from('programs').update({ active: false }).eq('id', p.id)); toast('Το πρόγραμμα έκλεισε'); route(); })
+    : sheet('Ξανά σε εναλλαγή', `<form id="ro"><p class="small muted" style="margin-top:0">…</p>
+        <div class="field"><label>Πόσες ακόμα προπονήσεις;</label><input name="n" type="number" min="1" max="100" value="4"></div><button class="btn block">Άνοιγμα</button></form>`, async (el, close) => {
+        const done = (await q(sb.rpc('program_done', { p: p.id }))) || 0;
+        $('p', el).textContent = `Έχουν γίνει ${done} από ${p.total_sessions} προπονήσεις. Το πρόγραμμα μπαίνει ξανά στην εναλλαγή.`;
+        $('#ro', el).onsubmit = async e => { e.preventDefault(); close();
+          await q(sb.from('programs').update({ active: true, total_sessions: done + (num(e.target.n.value) || 4) }).eq('id', p.id)); toast('Μπήκε ξανά στην εναλλαγή'); route(); }; });
   const ta = $('#tplAct');
   if (ta) ta.onclick = async () => { await q(sb.from('programs').update({ active: !p.active }).eq('id', p.id));
     toast(p.active ? 'Το πρότυπο απενεργοποιήθηκε: δεν εμφανίζεται στη λίστα και στην αντιγραφή' : 'Το πρότυπο ενεργοποιήθηκε'); route(); };
@@ -899,15 +974,16 @@ routes.program = async (view, programId) => {
 
 // ---------- Εκτύπωση προγράμματος (A4, μία σελίδα ανά ημέρα, κουτιά για χειρόγραφη συμπλήρωση) ----------
 function printProgram(p, athlete) {
-  if (!p.exercisesAll.length) return toast('Το πρόγραμμα δεν έχει ασκήσεις', true);
-  let sess = Math.min(5, Math.max(1, p.total_sessions || 4));
-  sheet('Εκτύπωση · ' + progTitle(p), `
-    <p class="small muted" style="margin-top:0">Φύλλο A4 με κουτιά για σετ × επαναλήψεις και κιλά σε κάθε προπόνηση.</p>
+  const ps = (Array.isArray(p) ? p : [p]).filter(x => x.exercisesAll.length);
+  if (!ps.length) return toast('Το πρόγραμμα δεν έχει ασκήσεις', true);
+  let sess = Math.min(5, Math.max(1, ps[0].total_sessions || 4));
+  sheet('Εκτύπωση · ' + ps.map(progTitle).join(', '), `
+    <p class="small muted" style="margin-top:0">Φύλλο A4${ps.length > 1 ? ', μία σελίδα ανά πρόγραμμα,' : ''} με κουτιά για κάθε προπόνηση.</p>
     <label class="tiny">Στήλες προπονήσεων στη σελίδα</label>
     <div class="seg" id="pSess">${[1, 2, 3, 4, 5].map(n => `<button data-n="${n}" class="${n === sess ? 'active' : ''}">${n}</button>`).join('')}</div>
     <button class="btn block" id="pGo">${icon('print', 'sm')}Εκτύπωση</button>`, (el, close) => {
     $$('#pSess button', el).forEach(b => b.onclick = () => { sess = +b.dataset.n; $$('#pSess button', el).forEach(x => x.classList.toggle('active', x === b)); });
-    $('#pGo', el).onclick = () => { close(); doPrint(p, athlete, [{ name: progTitle(p), program_exercises: p.exercisesAll }], sess); };
+    $('#pGo', el).onclick = () => { close(); doPrint(ps[0], athlete, ps.map(x => ({ name: progTitle(x), goal: x.goal, program_exercises: x.exercisesAll })), sess); };
   });
 }
 function doPrint(p, athlete, days, S) {
@@ -922,14 +998,17 @@ function doPrint(p, athlete, days, S) {
     const cols = `<colgroup><col style="width:${exW}%"><col style="width:${lbW}%">${`<col style="width:${sW}%">`.repeat(S)}</colgroup>`;
     const head = `<thead><tr><th class="ex" colspan="2">Άσκηση</th>${Array.from({ length: S }, (_, i) =>
       `<th class="date"><span class="pn">Προπόνηση ${i + 1}</span></th>`).join('')}</tr></thead>`;
-    const body = d.program_exercises.map(pe => `
-      <tr class="r1"><td class="ex" rowspan="2"><div class="exc">${Stickman.svg(pe.exercises.animation_code)}
-        <div>${esc(pe.exercises.name)}<small>${esc(targetText(pe))}</small></div></div></td>
-        <td class="lb"><span>Σετ×Επ<b class="dot">.</b></span></td>${'<td class="box"></td>'.repeat(S)}</tr>
-      <tr class="r2"><td class="lb"><span>Κιλά</span></td>${'<td class="box"></td>'.repeat(S)}</tr>`).join('');
+    const LB = { reps_weight: ['Σετ×Επ<b class="dot">.</b>', 'Κιλά'], reps: ['Σετ×Επαναλ.'], time: ['Σετ×Χρόνος'], distance: ['Απόσταση'] };
+    const body = d.program_exercises.map(pe => { const lb = LB[pe.exercises.metric_type] || LB.reps;
+      const exCell = `<td class="ex" rowspan="${lb.length}"><div class="exc">${Stickman.svg(pe.exercises.animation_code)}
+        <div>${esc(pe.exercises.name)}<small>${esc(targetText(pe))}</small></div></div></td>`;
+      return lb.length === 2 ? `
+      <tr class="r1">${exCell}<td class="lb"><span>${lb[0]}</span></td>${'<td class="box"></td>'.repeat(S)}</tr>
+      <tr class="r2"><td class="lb"><span>${lb[1]}</span></td>${'<td class="box"></td>'.repeat(S)}</tr>`
+        : `<tr class="r0">${exCell}<td class="lb"><span>${lb[0]}</span></td>${'<td class="box"></td>'.repeat(S)}</tr>`; }).join('');
     return `<section class="ppage" style="--rowh:${rowH}mm;--notesh:${Math.floor(notes)}mm">
       <div class="phead"><div class="pnames"><div><b>Αθλητής:</b> ${esc(athlete ? athlete.full_name : '')}</div>
-        <div><b>Προπονητής:</b> ${esc(coach)}</div><div><b>${esc(d.name)}</b>${p.goal ? ' · ' + esc(p.goal) : ''}</div></div>
+        <div><b>Προπονητής:</b> ${esc(coach)}</div><div><b>${esc(d.name)}</b>${d.goal ? ' · ' + esc(d.goal) : ''}</div></div>
         <div class="plogo">${m.logo_url ? `<img src="${esc(m.logo_url)}" alt="">` : ''}<span>${esc(gymName)}</span></div></div>
       <table class="prog${cls}">${cols}${head}<tbody>${body}</tbody></table>
       <div class="notes">Σημειώσεις:</div></section>`;
@@ -1036,7 +1115,7 @@ async function memberSheet(m, after) {
       <div class="field"><label>Στόχος</label><input name="goal" value="${esc(m.goal || '')}"></div>
       <div class="field"><label>Προπονητής</label><select name="coach_id"><option value="">—</option>${coaches.map(c =>
         `<option value="${c.id}" ${c.id === m.coach_id ? 'selected' : ''}>${esc(c.full_name)}</option>`).join('')}</select></div></div>
-    <div class="field"><label>Σχόλια</label><textarea name="notes" rows="2" placeholder="π.χ. έμπειρος, πρόβλημα στο γόνατο, έρχεται μόνο βράδυ">${esc(m.notes || '')}</textarea></div>
+    <div class="field"><label>Σημειώσεις για τον προπονητή</label><textarea name="notes" rows="2" placeholder="π.χ. 3 χρόνια boxing · αποφεύγει άλματα λόγω γονάτου · μόνο απογευματινά τμήματα">${esc(m.notes || '')}</textarea></div>
     <div class="row" style="margin-bottom:14px"><label class="check"><input type="checkbox" name="is_athlete" ${m.is_athlete ? 'checked' : ''}>Αθλητής</label>
       ${owner ? `<label class="check"><input type="checkbox" name="is_coach" ${m.is_coach ? 'checked' : ''}>Προπονητής</label>` : ''}
       ${!isNew ? `<label class="check"><input type="checkbox" name="active" ${m.status === 'active' ? 'checked' : ''} ${m.user_id === st.user.id ? 'disabled' : ''}>Ενεργό</label>` : ''}</div>
@@ -1086,7 +1165,7 @@ routes.members = async view => {
       || '<div class="empty">Κανένα μέλος</div>';
     $$('#list .mrow').forEach(r => r.onclick = e => { if (e.target.closest('[data-print]')) return; memberSheet(ms.find(m => m.id === r.dataset.id), () => route()); });
     $$('[data-print]').forEach(b => b.onclick = async () => { const id = b.dataset.print;
-      printProgram(await loadProgram(progOf[id]), ms.find(m => m.id === id)); });
+      printProgram(await Promise.all(progs.filter(p => p.athlete_id === id).map(p => loadProgram(p.id))), ms.find(m => m.id === id)); });
   };
   $('#q').oninput = e => { search = e.target.value.toLowerCase(); draw(); };
   $$('#flt button').forEach(c => c.onclick = () => { tab = c.dataset.f; store.set('mem_tab', tab); $$('#flt button').forEach(x => x.classList.toggle('active', x === c)); draw(); });
@@ -1145,21 +1224,23 @@ routes.today = view => renderWorkout(view, st.cur.member_id, 'athlete');
 routes.log = (view, athleteId) => renderWorkout(view, athleteId, 'coach');
 
 async function renderWorkout(view, athleteId, source) {
-  const pid = await activeProgramId(athleteId);
-  if (!pid) { view.innerHTML = `<h1>Προπόνηση</h1><div class="card empty">${icon('clip')}<p>Δεν υπάρχει ενεργό πρόγραμμα.</p>${source === 'coach' ?
-    `<a class="btn" href="#/athlete/${athleteId}">Δημιουργία προγράμματος</a>` : 'Επικοινωνήστε με τον προπονητή σας.'}</div>`; return; }
-  const [p, sugg, recent, ath, best, pst] = await Promise.all([
-    loadProgram(pid), q(sb.rpc('suggest_progression', { p_athlete: athleteId })),
+  const [stat0, actP] = await Promise.all([
+    q(sb.from('v_athlete_status').select('next_program_id, programs').eq('athlete_id', athleteId)),
+    q(sb.from('programs').select('id').eq('athlete_id', athleteId).eq('active', true).order('seq'))]);
+  if (!actP.length) { view.innerHTML = `<h1>Προπόνηση</h1><div class="card empty">${icon('clip')}<p>Δεν υπάρχει ενεργό πρόγραμμα.</p>${source === 'coach' ?
+    `<a class="btn" href="#/athlete/${athleteId}">Νέο πρόγραμμα</a>` : 'Επικοινωνήστε με τον προπονητή σας.'}</div>`; return; }
+  const [progs, sugg, recent, ath, best] = await Promise.all([
+    Promise.all(actP.map(x => loadProgram(x.id))), q(sb.rpc('suggest_progression', { p_athlete: athleteId })),
     q(sb.from('workout_sessions').select('id, program_day_id, performed_on, workout_sets(exercise_id, set_no, reps, weight, seconds)')
       .eq('athlete_id', athleteId).order('performed_on', { ascending: false }).limit(12)),
     q(sb.from('gym_members').select('full_name').eq('id', athleteId).single()),
-    q(sb.from('v_exercise_progress').select('exercise_id, est_1rm').eq('athlete_id', athleteId)),
-    q(sb.from('v_athlete_status').select('program_done, program_total').eq('athlete_id', athleteId))
+    q(sb.from('v_exercise_progress').select('exercise_id, est_1rm').eq('athlete_id', athleteId))
   ]);
-  const days = p.program_days;
-  if (!days.length) { view.innerHTML = '<div class="card empty">Το πρόγραμμα δεν έχει ημέρες ακόμα.</div>'; return; }
+  // Κάθε ενεργό πρόγραμμα = μία «επιλογή» της εναλλαγής
+  const PL = Object.fromEntries(((stat0[0] || {}).programs || []).map(x => [x.id, x]));
+  const days = progs.map(p => Object.assign(p.day, { name: progTitle(p), _p: p, _done: PL[p.id]?.done ?? 0 }));
   const last = recent[0];
-  const nextIdx = last ? (days.findIndex(d => d.id === last.program_day_id) + 1) % days.length : 0;
+  const nextIdx = Math.max(0, days.findIndex(d => d._p.id === stat0[0]?.next_program_id));
   let dayIdx = nextIdx;
   const sMap = Object.fromEntries(sugg.map(s => [s.program_exercise_id, s]));
   const prev = {};   // τελευταία σετ ανά άσκηση
@@ -1191,8 +1272,8 @@ async function renderWorkout(view, athleteId, source) {
   const cur = {};
   const curOf = ei => { const S = state[ei].sets; if (cur[ei] != null && cur[ei] < S.length) return cur[ei];
     const i = S.findIndex(x => !x.done); return i < 0 ? -1 : i; };
-  const stepOf = pe => ({ w: +pe.exercises.increment_kg || 1, r: 1, s: 5 });
-  const setTxt = (x, m) => m === 'time' ? `${fmtNum(x.s) || 0}″` : m === 'reps_weight' ? `${fmtNum(x.w) || 0} × ${fmtNum(x.r) || 0}` : `${fmtNum(x.r) || 0} επ.`;
+  const stepOf = pe => ({ w: +pe.exercises.increment_kg || 1, r: 1, s: 5, tm: 1, ts: 5 });
+  const setTxt = (x, m) => m === 'time' ? dur(x.s) : m === 'reps_weight' ? `${fmtNum(x.w) || 0} × ${fmtNum(x.r) || 0}` : `${fmtNum(x.r) || 0} επ.`;
   const stepper = (k, v, unit) => `<div class="stepper" data-stp="${k}"><button data-step="-1" aria-label="Λιγότερα">${icon('minus')}</button>
     <label><input inputmode="decimal" data-k="${k}" value="${fmtNum(v)}" aria-label="${unit}"><span>${unit}</span></label>
     <button data-step="1" aria-label="Περισσότερα">${icon('plus')}</button></div>`;
@@ -1208,9 +1289,9 @@ async function renderWorkout(view, athleteId, source) {
     let editor;
     if (m === 'time') editor = tm
       ? `<div class="timer-big" id="tmr">${fmtTime(Math.max(0, timer.left))}</div>
-         <button class="btn block secondary big-btn" data-tstop>${icon('check')}Σταμάτησα (${fmtNum(timer.total - timer.left)}″)</button>`
-      : `${stepper('s', x.s, 'δευτ.')}
-         <div class="row nowrap" style="gap:8px"><button class="btn block big-btn" data-tstart>${icon('timer')}Έναρξη ${fmtNum(x.s) || 0}″</button>
+         <button class="btn block secondary big-btn" data-tstop>${icon('check')}Σταμάτησα (${dur(timer.total - timer.left)})</button>`
+      : `<div class="steppers">${stepper('tm', Math.floor((num(x.s) || 0) / 60), 'λεπτά')}${stepper('ts', (num(x.s) || 0) % 60, 'δευτ.')}</div>
+         <div class="row nowrap" style="gap:8px"><button class="btn block big-btn" data-tstart>${icon('timer')}Έναρξη ${dur(x.s)}</button>
            <button class="btn secondary big-btn" data-done style="flex:none" aria-label="Καταχώρηση χωρίς χρονόμετρο">${icon('check')}</button></div>`;
     else editor = `<div class="steppers">${m === 'reps_weight' ? stepper('w', x.w, 'κιλά') : ''}${stepper('r', x.r, 'επαν.')}</div>
          <button class="btn block big-btn" data-done>${icon('check')}Σετ ${ci + 1} έγινε</button>`;
@@ -1228,9 +1309,8 @@ async function renderWorkout(view, athleteId, source) {
         <button class="btn small" id="finish" ${done ? '' : 'disabled'}>Τέλος</button></div>
       ${source === 'coach' ? `<p class="small"><a href="#/athlete/${athleteId}" class="row nowrap" style="gap:2px;text-decoration:none">${icon('left', 'sm')}${esc(ath.full_name)}</a></p>` : ''}
       <h1 style="margin-bottom:4px">${source === 'coach' ? esc(ath.full_name) : 'Η προπόνησή μου'} ${help('workout')}</h1>
-      <div class="muted small" style="margin-bottom:12px">${esc(progTitle(p))} · <b>Προπόνηση ${Math.min((pst[0]?.program_done ?? 0) + 1, p.total_sessions)} από ${p.total_sessions}</b>${last ? ` · τελευταία ${fmtDate(last.performed_on)}` : ''}</div>
-      ${(pst[0]?.program_done ?? 0) >= p.total_sessions ? `<div class="card small" style="border-color:var(--info-line);background:var(--info-soft)">${icon('clip', 'sm')} Οι προπονήσεις του προγράμματος ολοκληρώθηκαν${source === 'coach' ? '. Ώρα για νέο πρόγραμμα.' : '. Ο προπονητής θα σας δώσει νέο πρόγραμμα· μπορείτε να συνεχίσετε με αυτό.'}</div>` : ''}
-      ${days.length > 1 ? `<div class="chips">${days.map((x, i) => `<button class="chip ${i === dayIdx ? 'active' : ''}" data-day="${i}">${esc(x.name)}${i === nextIdx ? ' <span class="badge b-brand">επόμενη</span>' : ''}</button>`).join('')}</div>` : ''}
+      <div class="muted small" style="margin-bottom:12px"><b>${esc(d.name)}</b> · Προπόνηση ${Math.min(d._done + 1, d._p.total_sessions)} από ${d._p.total_sessions}${last ? ` · τελευταία ${fmtDate(last.performed_on)}` : ''}</div>
+      ${days.length > 1 ? `<div class="chips">${days.map((x, i) => `<button class="chip ${i === dayIdx ? 'active' : ''}" data-day="${i}">${esc(x.name)} <span class="muted">${x._done}/${x._p.total_sessions}</span>${i === nextIdx ? ' <span class="badge b-brand">σειρά του</span>' : ''}</button>`).join('')}</div>` : ''}
       <div class="row" style="margin-bottom:12px"><span class="small muted">Ημερομηνία</span>${dateField('wdate', date)}</div>
       ${d.program_exercises.map((pe, ei) => { const ex = pe.exercises, s = sMap[pe.id], m = ex.metric_type;
         const [c, l] = s ? (statusInfo[s.status] || ['b-muted', '']) : ['b-muted', ''];
@@ -1262,22 +1342,28 @@ async function renderWorkout(view, athleteId, source) {
   function bindEx(card) {
     const ei = +card.dataset.ei, pe = days[dayIdx].program_exercises[ei], m = pe.exercises.metric_type, S = state[ei], step = stepOf(pe);
     const x = () => S.sets[curOf(ei)];
+    // λεπτά/δευτ. γράφονται ως σύνολο δευτερολέπτων στο x.s
+    const setVal = (k, v) => {
+      if (k !== 'tm' && k !== 'ts') { x()[k] = v; return; }
+      const mm = num($('[data-k="tm"]', card)?.value) || 0, ss = num($('[data-k="ts"]', card)?.value) || 0;
+      x().s = mm * 60 + ss; const st0 = $('[data-tstart]', card); if (st0) st0.innerHTML = `${icon('timer')}Έναρξη ${dur(x().s)}`; };
     $$('[data-pick]', card).forEach(b => b.onclick = () => {
       const si = +b.dataset.pick; if (S.sets[si].done) S.sets[si].done = false;   // πάτημα σε έτοιμο σετ = διόρθωση
       cur[ei] = si; stopTimer(); saveDraft(); redrawEx(ei); });
     $$('.stepper', card).forEach(sp => {
       const k = sp.dataset.stp, inp = $('input', sp);
       $$('[data-step]', sp).forEach(b => b.onclick = () => {
-        const v = Math.max(0, Math.round(((num(inp.value) || 0) + (+b.dataset.step) * step[k]) * 100) / 100);
-        x()[k] = v; inp.value = fmtNum(v); saveDraft();
-        if (k === 's') { const st0 = $('[data-tstart]', card); if (st0) st0.innerHTML = `${icon('timer')}Έναρξη ${fmtNum(v)}″`; }
+        let v = Math.max(0, Math.round(((num(inp.value) || 0) + (+b.dataset.step) * step[k]) * 100) / 100);
+        if (k === 'ts' && v > 55) v = 55;
+        inp.value = fmtNum(v); setVal(k, v); saveDraft();
+
       });
       inp.onfocus = () => inp.select();
-      inp.oninput = () => { x()[k] = inp.value; saveDraft(); };
+      inp.oninput = () => { setVal(k, inp.value); saveDraft(); };
     });
     const doneBtn = $('[data-done]', card);
     if (doneBtn) doneBtn.onclick = () => {
-      const y = x(); if ((m === 'time' ? num(y.s) : num(y.r)) == null) { toast(m === 'time' ? 'Βάλτε δευτερόλεπτα' : 'Βάλτε επαναλήψεις', true); return; }
+      const y = x(); if ((m === 'time' ? num(y.s) : num(y.r)) == null) { toast(m === 'time' ? 'Βάλτε χρόνο' : 'Βάλτε επαναλήψεις', true); return; }
       completeSet(ei);
     };
     const add = $('[data-addset]', card);
@@ -1310,7 +1396,7 @@ async function renderWorkout(view, athleteId, source) {
     timer.id = setInterval(() => {
       timer.left--;
       const el = $('#tmr'); if (el) el.textContent = fmtTime(Math.max(0, timer.left));
-      const b = $('[data-tstop]'); if (b) b.innerHTML = `${icon('check')}Σταμάτησα (${fmtNum(timer.total - timer.left)}″)`;
+      const b = $('[data-tstop]'); if (b) b.innerHTML = `${icon('check')}Σταμάτησα (${dur(timer.total - timer.left)})`;
       if (timer.left <= 3 && timer.left > 0) beep(true);
       if (timer.left <= 0) { const e = timer.ei; stopTimer(); x.s = total; beep(true); setTimeout(() => beep(true), 250);
         if (navigator.vibrate) navigator.vibrate([200, 100, 200]); completeSet(e); }
@@ -1348,7 +1434,7 @@ async function renderWorkout(view, athleteId, source) {
       }
     }
     view.innerHTML = `<div class="card done-hero"><div class="big">${icon('check')}</div><h1>Μπράβο!</h1>
-      <p class="muted">${esc(progTitle(p))} · ${fmtDateDay(date)}</p>
+      <p class="muted">${esc(days[dayIdx].name)} · ${fmtDateDay(date)}</p>
       <div class="kpis" style="margin-top:16px"><div class="kpi"><b>${rows.length}</b><span>σετ</span></div>
         <div class="kpi"><b>${Math.round(vol).toLocaleString('el-GR')}</b><span>κιλά συνολικά</span></div>
         ${source === 'athlete' ? `<div class="kpi"><b>${mins}′</b><span>διάρκεια</span></div>` : ''}</div></div>
@@ -1379,7 +1465,7 @@ async function renderHistory(el, athleteId, limit = 40) {
         <div><b>${fmtDateDay(s.performed_on)}</b><div class="small muted">${esc(s.program_days?.programs ? progTitle(s.program_days.programs) : (s.program_days?.name || ''))}${s.source === 'coach' ? ' · από προπονητή' : ''}</div></div>
         <div style="text-align:right" class="small"><b>${s.workout_sets.length}</b> σετ<br><span class="muted">${Math.round(vol).toLocaleString('el-GR')} κ.</span></div></div></summary>
         <div class="divider"></div><div class="small">${[...by].map(([n, ys]) => `<div style="margin-bottom:4px"><b>${esc(n)}</b>
-          <span class="muted">${ys.map(x => x.seconds ? x.seconds + '″' : (x.weight ? fmtNum(x.weight) + '×' : '') + (x.reps ?? '')).join(' · ')}</span></div>`).join('')}</div></details>`;
+          <span class="muted">${ys.map(x => x.seconds ? dur(x.seconds) : (x.weight ? fmtNum(x.weight) + '×' : '') + (x.reps ?? '')).join(' · ')}</span></div>`).join('')}</div></details>`;
     }).join('');
   }).join('');
 }
