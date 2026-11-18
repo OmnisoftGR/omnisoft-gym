@@ -3,5 +3,5 @@
 // ΠΟΤΕ μην βάλετε εδώ το secret / service_role key.
 window.APP_CONFIG = {
   url: "https://zxmjedbxvgunxkftkxjw.supabase.co",
-  key: "ΒΑΛΤΕ_ΕΔΩ_ΤΟ_PUBLISHABLE_KEY"
+  key: "sb_publishable_LgOle_uCRcakydCL9kgY7Q_mqQxzEMR"
 };
