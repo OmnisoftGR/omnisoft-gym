@@ -569,7 +569,7 @@ routes.home = async view => {
   const came = new Set(att.map(a => a.member_id)).size;
   const G = [
     ['prog', 'Νέο πρόγραμμα', 'clip', rows.filter(r => r.to_renew > 0 || (!r.active_programs && needsProg.has(r.athlete_id))).map(r => [r,
-      !r.active_programs && r.to_renew ? 'Τελείωσε το πρόγραμμα' : r.to_renew ? `Έκλεισε ${r.to_renew === 1 ? 'ένα' : r.to_renew} πρόγρ., συνεχίζει με τα υπόλοιπα` : 'Δεν έχει πρόγραμμα'])],
+      !r.active_programs && r.to_renew ? 'Τελείωσε το πρόγραμμα' : r.active_programs ? 'Ενεργά: ' + (r.programs || []).map(p => p.name).join(', ') : 'Δεν έχει πρόγραμμα'])],
     ['sub', 'Συνδρομές', 'wallet', rows.filter(r => { const x = SS[r.athlete_id]; return x && (['expiring', 'expired'].includes(x.status) || (owner && x.has_debt)); })
       .map(r => { const x = SS[r.athlete_id]; return [r, [x.status !== 'active' && SUB[x.status] ? SUB[x.status][1] : '', owner && x.has_debt ? 'Οφειλή' : ''].filter(Boolean).join(' · ')]; })],
     ['away', 'Λείπουν πάνω από 10 ημέρες', 'clock', rows.filter(r => r.days_absent > 10).sort((a, b) => b.days_absent - a.days_absent).map(r => [r, 'Τελευταία φορά ' + relDays(r.days_absent)])],
@@ -621,7 +621,7 @@ routes.athletes = async view => {
     r.attention = (r.days_absent == null || r.days_absent > 10) || f.n_stall > 0 || f.n_decrease > 0;
     r.f = f; r.pct = r.program_total ? Math.min(100, Math.round(100 * r.program_done / r.program_total)) : 0;
   });
-  const isDone = r => !r.active_programs && r.to_renew > 0, isPart = r => r.active_programs > 0 && r.to_renew > 0;
+  const isDone = r => !r.active_programs && r.to_renew > 0;
   const since = new Date(Date.now() - 28 * 864e5).toISOString();
   const [mems, att] = await Promise.all([q(sb.from('gym_members').select('*').eq('gym_id', g).order('full_name')),
     q(sb.from('attendance').select('member_id, class_types(name)').eq('gym_id', g).gte('checked_in_at', since).not('class_type_id', 'is', null))]);
@@ -665,16 +665,13 @@ routes.athletes = async view => {
       if (r.f.n_stall) tags.push(`<span class="badge b-warn">${icon('alert', 'sm')}Στασιμότητα</span>`);
       if (r.f.n_decrease) tags.push(`<span class="badge b-bad">Δυσκολεύεται</span>`);
       if (r.f.n_increase) tags.push(`<span class="badge b-ok">${icon('trend', 'sm')}Έτοιμος για αύξηση</span>`);
-      const sb0 = SS[r.athlete_id];
-      if (sb0 && sb0.status !== 'active') tags.push(`<span class="badge ${SUB[sb0.status][0]}">${icon('wallet', 'sm')}${SUB[sb0.status][1]}</span>`);
-      if (sb0 && sb0.has_debt && st.cur.is_owner) tags.push(`<span class="badge b-bad">Οφειλή</span>`);
       if (isDone(r)) tags.push(`<span class="badge b-info">${icon('clip', 'sm')}Τέλος προγράμματος</span>`);
-      else if (isPart(r)) tags.push(`<span class="badge b-info">${icon('clip', 'sm')}Έκλεισε ${r.to_renew === 1 ? 'ένα' : r.to_renew} πρόγρ.</span>`);
       return `<a class="card tap" href="#/athlete/${r.athlete_id}" style="text-decoration:none;color:inherit">
         <div class="list-item">${avatar(r.full_name)}<div class="grow"><div class="row between nowrap"><b class="ellipsis">${esc(r.full_name)}</b>
           <span class="badge ${cls}">${relDays(d)}</span></div>
-          <div class="row nowrap small muted" style="margin-top:6px">${r.program_total ? `<div class="meter grow"><i style="width:${r.pct}%;background:${r.pct >= 100 ? 'var(--ok)' : 'var(--brand)'}"></i></div>` : ''}
-            <span>${r.program_total ? `${r.active_programs > 1 ? r.active_programs + ' πρόγρ. · ' : ''}${r.program_done}/${r.program_total} προπ.` : (acLine(r.athlete_id) ? esc(acLine(r.athlete_id)) + ' (4 εβδ.)' : 'χωρίς παρουσίες τον μήνα')}</span></div>
+          ${(r.programs || []).length ? `<div class="act-progs">${r.programs.map(p => `<div class="ap"><span class="ellipsis">${esc(p.name)}${p.next && r.programs.length > 1 ? ' <span class="badge b-brand">σειρά του</span>' : ''}</span>
+              <div class="meter"><i style="width:${Math.min(100, Math.round(100 * p.done / p.total))}%"></i></div><span class="tiny muted">${p.done}/${p.total}</span></div>`).join('')}</div>`
+            : `<div class="small muted" style="margin-top:6px">${acLine(r.athlete_id) ? esc(acLine(r.athlete_id)) + ' (4 εβδ.)' : 'χωρίς παρουσίες τον μήνα'}</div>`}
           ${tags.length ? `<div class="row" style="margin-top:8px;gap:6px">${tags.join('')}</div>` : ''}</div></div></a>`;
     }).join('') || '<div class="card empty">Κανένας αθλητής</div>';
   };
@@ -751,6 +748,9 @@ routes.athlete = async (view, id) => {
     q(sb.rpc('activity_counts', { p_member: id, p_days: 28 }))
   ]);
   const s0 = stat[0] || {}, PL = s0.programs || [], sub = subs.find(x => x.member_id === id) || { status: 'none' };
+  let bal = 0;
+  if (owner) { const [ms, ps] = await Promise.all([q(sb.from('memberships').select('price, status').eq('member_id', id)), q(sb.from('payments').select('amount').eq('member_id', id))]);
+    bal = ms.filter(x => x.status !== 'cancelled').reduce((a, x) => a + +x.price, 0) - ps.reduce((a, x) => a + +x.amount, 0); }
   const lastBw = ((await sb.from('body_weights').select('weight_kg, measured_on').eq('member_id', id).order('measured_on', { ascending: false }).limit(1)).data || [])[0];
   const flagged = sugg.filter(s => ['deload', 'decrease', 'stall'].includes(s.status));
   let tab = 'hist';
@@ -778,13 +778,13 @@ routes.athlete = async (view, id) => {
     ${ac.length ? `<div class="card"><div class="small muted" style="margin-bottom:6px">Παρουσίες τις τελευταίες 4 εβδομάδες</div><div class="chips">${ac.map(a =>
       `<span class="chip"><span class="ses-dot" style="background:${esc(a.color)}"></span>${esc(a.name)} <b>${a.n}</b></span>`).join('')}</div></div>` : ''}
     ${PL.length > 1 ? '<p class="tiny muted" style="margin:-6px 0 12px">Τα προγράμματα κάθε δραστηριότητας εναλλάσσονται με τη σειρά, όποια μέρα κι αν έρθει.</p>' : ''}
-    ${s0.to_renew && PL.length ? `<p class="small" style="margin:-4px 0 12px"><span class="badge b-info">${icon('clip', 'sm')}${s0.to_renew === 1 ? 'Έκλεισε 1 πρόγραμμα' : 'Έκλεισαν ' + s0.to_renew + ' προγράμματα'}</span>
-      <span class="muted">· συνεχίζει με τα υπόλοιπα</span></p>` : ''}
 
     <h2 style="margin:4px 0 8px">Συνδρομή</h2>
-    <div class="card"><div class="row between nowrap"><div class="grow" style="min-width:0">
-      <span class="badge ${SUB[sub.status][0]}">${SUB[sub.status][1]}</span>${sub.has_debt && owner ? ' <span class="badge b-bad">Οφειλή</span>' : ''}
-      <div class="small muted" style="margin-top:4px">${esc(subLine(sub))}</div></div></div>
+    <div class="card ${owner && bal > 0.009 ? 'sub-debt' : ''}"><div class="row between nowrap"><div class="grow" style="min-width:0">
+      <span class="badge ${SUB[sub.status][0]}">${SUB[sub.status][1]}</span>
+      <div class="small muted" style="margin-top:4px">${esc(subLine(sub))}</div></div>
+      ${owner ? `<div style="text-align:right"><b style="font-size:20px;color:${bal > 0.009 ? 'var(--bad)' : 'var(--ok)'}">${bal > 0.009 ? money(bal) : bal < -0.009 ? '+' + money(-bal) : '✓'}</b>
+        <div class="tiny muted">${bal > 0.009 ? 'οφειλή' : bal < -0.009 ? 'προπληρωμή' : 'εξοφλημένος'}</div></div>` : ''}</div>
       ${owner ? `<button class="btn block" style="margin-top:12px" id="subC">${icon('wallet', 'sm')}Συνδρομή & πληρωμές</button>` : ''}</div>
 
     ${flagged.length ? `<div class="card" style="border-color:var(--warn-line);background:var(--warn-soft)"><div class="row nowrap">${icon('alert')}<b>Χρειάζεται προσοχή</b></div>
@@ -2450,7 +2450,7 @@ const SUBS = {
         const renew = ['expiring', 'expired', 'none'].includes(s.status);
         return `<div class="mrow" data-m="${m.id}">${avatar(m.full_name, 'sm')}<div class="grow" style="min-width:0">
           <b class="ellipsis" style="display:block">${esc(m.full_name)}</b>
-          <div class="row nowrap" style="gap:4px;margin-top:2px"><span class="badge ${c}">${l}</span>${b > 0.009 ? `<span class="badge b-bad">οφειλή ${money(b)}</span>` : ''}
+          <div class="row" style="gap:4px;margin-top:4px"><span class="badge ${c}">${l}</span>${b > 0.009 ? `<span class="badge b-bad">οφειλή ${money(b)}</span>` : ''}
             ${s.status !== 'none' ? `<span class="tiny muted ellipsis">${esc(subLine(s))}</span>` : ''}</div></div>
           ${renew ? `<button class="btn small" data-renew="${m.id}" title="${s.status === 'none' ? 'Νέα συνδρομή' : 'Ανανέωση'}">${icon('plus', 'sm')}<span class="hide-sm">${s.status === 'none' ? 'Νέα' : 'Ανανέωση'}</span></button>` : ''}
           ${b > 0.009 ? `<button class="btn secondary small" data-pay="${m.id}" title="Πληρωμή">${icon('euro', 'sm')}</button>` : ''}</div>`; }).join('')

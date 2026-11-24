@@ -495,3 +495,7 @@ button.hist-row { cursor: pointer; }
 .sub-big { font-size:26px; font-weight:800; margin:6px 0 2px; }
 .lg-r.tap { cursor:pointer; }
 .lg-r.tap:active { background:var(--surface-2); }
+.act-progs { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+.act-progs .ap { display:grid; grid-template-columns:minmax(0,1fr) 70px auto; align-items:center; gap:8px; font-size:13px; }
+.act-progs .meter { margin:0; }
+.sub-debt { border-color:var(--b-bad); background:var(--bad-soft); }
