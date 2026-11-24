@@ -579,11 +579,14 @@ routes.home = async view => {
   const draw = () => {
     $('#todo').innerHTML = G.map(([k, l, i, xs]) => `<div class="card" style="padding:4px 14px">
       <div class="row between nowrap" style="padding:10px 0">${icon(i, 'sm')}<b class="grow">${l}</b><span class="badge b-muted">${xs.length}</span></div>
-      ${(open.has(k) ? xs : xs.slice(0, 4)).map(([r, why]) => `<a class="row nowrap" href="#/athlete/${r.athlete_id}" style="padding:8px 0;border-top:1px solid var(--line);text-decoration:none;color:inherit">
-        ${avatar(r.full_name)}<div class="grow" style="min-width:0"><b class="ellipsis" style="display:block">${esc(r.full_name)}</b><div class="tiny muted">${esc(why)}</div></div>${icon('right', 'sm')}</a>`).join('')}
+      ${(open.has(k) ? xs : xs.slice(0, 4)).map(([r, why]) => `<div class="row nowrap" style="padding:8px 0;border-top:1px solid var(--line)">
+        <a class="row nowrap grow" href="#/athlete/${r.athlete_id}" style="text-decoration:none;color:inherit;min-width:0">
+        ${avatar(r.full_name)}<div class="grow" style="min-width:0"><b class="ellipsis" style="display:block">${esc(r.full_name)}</b><div class="tiny muted">${esc(why)}</div></div></a>
+        ${k === 'prog' ? `<button class="btn small" data-np="${r.athlete_id}">${icon('plus', 'sm')}Πρόγραμμα</button>` : `<a href="#/athlete/${r.athlete_id}" class="muted">${icon('right', 'sm')}</a>`}</div>`).join('')}
       ${xs.length > 4 && !open.has(k) ? `<button class="btn ghost small block" data-more="${k}" style="margin:4px 0 8px">Όλοι (${xs.length})</button>` : ''}</div>`).join('')
       || `<div class="card empty">${icon('check')}<p>Όλα εντάξει, τίποτα εκκρεμές.</p></div>`;
     $$('[data-more]').forEach(b => b.onclick = () => { open.add(b.dataset.more); draw(); });
+    $$('[data-np]').forEach(b => b.onclick = () => createProgramFor(b.dataset.np));
   };
   view.innerHTML = `
     <div class="head-row"><h1>Σήμερα ${help('home')}</h1><span class="muted small">${DAYS[new Date().getDay()]} ${fmtDate(todayISO())}</span></div>
@@ -755,11 +758,12 @@ routes.athlete = async (view, id) => {
     <p class="small"><a href="#/athletes" class="row nowrap" style="gap:2px;text-decoration:none">${icon('left', 'sm')}Αθλητές</a></p>
     <div class="card"><div class="list-item">${avatar(m.full_name, 'lg')}<div class="grow" style="min-width:0">
       <h1 class="ath-name">${esc(m.full_name)}</h1><div class="muted small">${esc(m.goal || 'Χωρίς στόχο')} · τελευταία φορά ${relDays(s0.days_absent)}</div></div>
-      <div class="ath-acts"><button class="btn secondary small" id="editM">${icon('edit', 'sm')}Επεξεργασία</button>
-        <a class="btn small" href="#/log/${id}">${icon('play', 'sm')}Καταγραφή</a></div></div>
+</div>
       ${m.notes ? `<div class="note-box">${icon('alert', 'sm')}<span>${esc(m.notes)}</span></div>` : ''}
       ${m.athlete_notes ? `<div class="small" style="margin-top:8px"><b>Σχόλια αθλητή:</b> ${esc(m.athlete_notes)}</div>` : ''}
-      ${m.height_cm || lastBw ? `<div class="small muted" style="margin-top:4px">${[m.height_cm ? m.height_cm + ' εκ.' : '', lastBw ? fmtNum(lastBw.weight_kg) + ' κ. (' + fmtDate(lastBw.measured_on) + ')' : ''].filter(Boolean).join(' · ')}</div>` : ''}</div>
+      ${m.height_cm || lastBw ? `<div class="small muted" style="margin-top:4px">${[m.height_cm ? m.height_cm + ' εκ.' : '', lastBw ? fmtNum(lastBw.weight_kg) + ' κ. (' + fmtDate(lastBw.measured_on) + ')' : ''].filter(Boolean).join(' · ')}</div>` : ''}
+      <div class="ath-acts"><a class="btn" href="#/log/${id}">${icon('play', 'sm')}Καταγραφή</a>
+        <button class="btn secondary" id="editM">${icon('edit', 'sm')}Επεξεργασία</button></div></div>
 
     <div class="row between nowrap" style="margin:4px 0 8px"><h2 style="margin:0">Προγράμματα ${help('rotation')}</h2>
       <button class="btn secondary small" id="newProg">${icon('plus', 'sm')}Νέο πρόγραμμα</button></div>
@@ -2555,29 +2559,47 @@ const SUBS = {
     });
   },
   async payments(el) {
-    const D = await SUBS.load(); let ym = todayISO().slice(0, 7);
-    const names = Object.fromEntries(D.members.map(m => [m.id, m.full_name]));
+    const D = await SUBS.load();
     const allNames = Object.fromEntries((await q(sb.from('gym_members').select('id, full_name').eq('gym_id', st.cur.gym_id))).map(m => [m.id, m.full_name]));
-    el.innerHTML = `<div class="card row between nowrap" style="padding:8px"><button class="icon-btn" id="pm">${icon('left')}</button>
+    // Περίοδος: Εβδομάδα / Μήνας / Έτος με βελάκια. Οι τρόποι πληρωμής λειτουργούν και ως φίλτρο.
+    let per = store.get('pay_per') || 'm', anchor = todayISO(), meth = '';
+    const range = () => {
+      if (per === 'w') { const f = weekStart(anchor); return [f, addDays(f, 6), `${fmtDate(f).slice(0, 5)} – ${fmtDate(addDays(f, 6))}`]; }
+      if (per === 'y') { const y = anchor.slice(0, 4); return [y + '-01-01', y + '-12-31', y]; }
+      const ym = anchor.slice(0, 7), d = new Date(ym + '-01T12:00:00'); d.setMonth(d.getMonth() + 1); d.setDate(0);
+      return [ym + '-01', isoOf(d), `${MONTHS[+ym.slice(5) - 1]} ${ym.slice(0, 4)}`];
+    };
+    const shift = k => { const d = new Date(anchor + 'T12:00:00');
+      if (per === 'w') d.setDate(d.getDate() + 7 * k); else if (per === 'y') d.setFullYear(d.getFullYear() + k); else { d.setDate(15); d.setMonth(d.getMonth() + k); }
+      anchor = isoOf(d); };
+    el.innerHTML = `<div class="seg mini" id="per" style="margin-bottom:8px">${[['w', 'Εβδομάδα'], ['m', 'Μήνας'], ['y', 'Έτος']].map(([k, l]) =>
+        `<button data-p="${k}" class="${per === k ? 'active' : ''}">${l}</button>`).join('')}</div>
+      <div class="card row between nowrap" style="padding:8px"><button class="icon-btn" id="pm">${icon('left')}</button>
       <b id="ml" class="center grow"></b><button class="icon-btn" id="nm">${icon('right')}</button></div><div id="pc"></div>`;
     const draw = () => {
-      const [y, mo] = ym.split('-').map(Number); $('#ml').textContent = `${MONTHS[mo - 1]} ${y}`;
-      $('#nm').disabled = ym >= todayISO().slice(0, 7);
-      const xs = D.pays.filter(p => p.paid_on.startsWith(ym)), tot = xs.reduce((a, p) => a + +p.amount, 0);
-      const byM = groupBy(xs, p => p.method);
-      const sold = D.mems.filter(m => m.status !== 'cancelled' && m.start_date.startsWith(ym));
-      $('#pc').innerHTML = `<div class="card row between nowrap"><div><b style="font-size:26px">${money(tot)}</b><div class="small muted">${xs.length} πληρωμές · ${sold.length} νέες συνδρομές</div></div></div>
-        ${xs.length ? `<div class="card"><b>Ανά τρόπο πληρωμής</b>${[...byM].map(([k, ys]) => { const v = ys.reduce((a, p) => a + +p.amount, 0);
-          return `<div style="margin-top:8px"><div class="row between small"><span>${METHOD[k]}</span><b>${money(v)}</b></div>
-          <div class="meter"><i style="width:${tot ? 100 * v / tot : 0}%;background:var(--brand)"></i></div></div>`; }).join('')}</div>` : ''}
-        ${xs.length ? [...groupBy(xs, p => p.paid_on)].map(([d, ys]) => `<div class="row between nowrap day-head"><b>${fmtDateDay(d)}</b><b>${money(ys.reduce((a, p) => a + +p.amount, 0))}</b></div>
+      const [f, t, lbl] = range(); $('#ml').textContent = lbl;
+      $('#nm').disabled = t >= todayISO() && f <= todayISO();
+      const all = D.pays.filter(p => p.paid_on >= f && p.paid_on <= t), tot = all.reduce((a, p) => a + +p.amount, 0);
+      const xs = meth ? all.filter(p => p.method === meth) : all, shown = xs.reduce((a, p) => a + +p.amount, 0);
+      const byM = groupBy(all, p => p.method);
+      const sold = D.mems.filter(m => m.status !== 'cancelled' && m.start_date >= f && m.start_date <= t);
+      $('#pc').innerHTML = `<div class="card"><b style="font-size:26px">${money(meth ? shown : tot)}</b>
+          <div class="small muted">${meth ? `${METHOD[meth]} · ${xs.length} πληρωμές από ${money(tot)} συνολικά` : `${all.length} πληρωμές · ${sold.length} νέες συνδρομές`}</div></div>
+        ${all.length ? `<div class="card"><div class="row between nowrap"><b>Ανά τρόπο πληρωμής</b>${meth ? '<button class="linkbtn small" data-m="">Όλοι οι τρόποι</button>' : '<span class="tiny muted">πατήστε για φίλτρο</span>'}</div>
+          ${[...byM].sort((a, b) => b[1].length - a[1].length).map(([k, ys]) => { const v = ys.reduce((a, p) => a + +p.amount, 0);
+          return `<button class="meth-row ${meth === k ? 'on' : ''} ${meth && meth !== k ? 'dim' : ''}" data-m="${meth === k ? '' : k}"><div class="row between small"><span>${METHOD[k]} <span class="muted">· ${ys.length}</span></span><b>${money(v)}</b></div>
+          <div class="meter"><i style="width:${tot ? 100 * v / tot : 0}%;background:var(--brand)"></i></div></button>`; }).join('')}</div>` : ''}
+        ${xs.length ? [...groupBy(xs.slice().sort((a, b) => b.paid_on.localeCompare(a.paid_on)), p => p.paid_on)].map(([d, ys]) => `<div class="row between nowrap day-head"><b>${fmtDateDay(d)}</b><b>${money(ys.reduce((a, p) => a + +p.amount, 0))}</b></div>
           <div class="card" style="padding:4px 14px">${ys.map((p, i) => `<div class="row nowrap" style="padding:10px 0;${i ? 'border-top:1px solid var(--line)' : ''}">
-          ${avatar(allNames[p.member_id] || names[p.member_id] || '?', 'sm')}<div class="grow"><b>${esc(allNames[p.member_id] || '')}</b>
+          ${avatar(allNames[p.member_id] || '?', 'sm')}<div class="grow"><b>${esc(allNames[p.member_id] || '')}</b>
           <div class="small muted">${METHOD[p.method]}${p.notes ? ' · ' + esc(p.notes) : ''}</div></div><b>${money(p.amount)}</b></div>`).join('')}</div>`).join('')
           : '<div class="card empty">Καμία πληρωμή</div>'}`;
+      $$('[data-m]', el).forEach(b => b.onclick = () => { meth = b.dataset.m; draw(); });
     };
-    $('#pm').onclick = () => { const d = new Date(ym + '-15'); d.setMonth(d.getMonth() - 1); ym = isoOf(d).slice(0, 7); draw(); };
-    $('#nm').onclick = () => { const d = new Date(ym + '-15'); d.setMonth(d.getMonth() + 1); ym = isoOf(d).slice(0, 7); draw(); };
+    $$('#per button', el).forEach(b => b.onclick = () => { per = b.dataset.p; store.set('pay_per', per); anchor = todayISO();
+      $$('#per button', el).forEach(x => x.classList.toggle('active', x === b)); draw(); });
+    $('#pm').onclick = () => { shift(-1); draw(); };
+    $('#nm').onclick = () => { shift(1); draw(); };
     draw();
   },
   async plans(el) {

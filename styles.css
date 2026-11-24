@@ -232,7 +232,7 @@ button.stick-btn { padding: 0; border: 0; background: none; cursor: zoom-in; bor
   .bottomnav .active { color: var(--brand); }
   .bottomnav.scroll { overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; }
   .bottomnav.scroll::-webkit-scrollbar { display: none; }
-  .bottomnav.scroll a { flex: 0 0 22%; scroll-snap-align: start; }
+  .bottomnav.scroll a { flex: 0 0 auto; min-width: 64px; padding-left: 6px; padding-right: 6px; scroll-snap-align: start; }
   main { padding: 14px 12px calc(var(--nav-h) + 30px); }
   .workout-bar { margin: -14px -12px 12px; padding: 10px 12px; }
   h1 { font-size: 22px; }
@@ -453,8 +453,7 @@ button.hist-row { cursor: pointer; }
 .avatar.xs { width: 24px; height: 24px; font-size: 10px; }
 .compact-list { display: block !important; }
 .crow { padding: 7px 0; gap: 10px; text-decoration: none; color: inherit; font-weight: 600; }
-.ath-acts { display: flex; flex-direction: column; gap: 6px; flex: none; }
-.ath-acts .btn { justify-content: flex-start; }
+.ath-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
 .sub-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
 .ledger { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; font-size: 13px; }
 .ledger .lg-h, .ledger .lg-r { display: grid; grid-template-columns: 1fr 84px 84px; gap: 8px; padding: 9px 12px; align-items: center; }
@@ -487,3 +486,7 @@ button.hist-row { cursor: pointer; }
 .sub-acts .btn { white-space: nowrap; font-size: 15px; padding-left: 8px; padding-right: 8px; }
 .came-row { text-decoration: none; color: inherit; padding: 12px 16px; }
 .came-row b { font-size: 20px; margin-right: 4px; }
+
+.meth-row { display: block; width: 100%; margin-top: 8px; padding: 6px 8px; border: 1px solid transparent; border-radius: 10px; background: none; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+.meth-row.on { border-color: var(--brand); background: var(--brand-soft); }
+.meth-row.dim { opacity: .45; }
