@@ -435,3 +435,6 @@ h2.grp { font-size: 14px; text-transform: uppercase; letter-spacing: .04em; marg
 button.hist-row { cursor: pointer; }
 .set-line { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .set-line span { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; font-size: 13px; }
+.act-chips { margin: 2px 0 12px; }
+.act-chips .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 14px; }
+.act-chips .ses-dot { margin: 0; }

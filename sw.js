@@ -1,7 +1,7 @@
 // Omnisoft Gym — service worker: εγκατάσταση ως εφαρμογή και λειτουργία χωρίς σύνδεση για το «κέλυφος».
 // Πρώτα δίκτυο (για να φαίνονται αμέσως οι ενημερώσεις), αποθήκη μόνο όταν δεν υπάρχει σύνδεση.
 // Τα δεδομένα (Supabase) δεν αποθηκεύονται ποτέ εδώ.
-const CACHE = 'gym-v16';
+const CACHE = 'gym-v17';
 const SHELL = ['./', 'index.html', 'app.js', 'styles.css', 'stickman.js', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png'];
 
 self.addEventListener('install', e => {

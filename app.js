@@ -1814,13 +1814,18 @@ routes.progress = async view => {
          of: e => e.day.slice(0, 7), lbl: k => MONTHS[+k.slice(5) - 1].slice(0, 3) } };
   const acts = [...new Map(ent.map(e => [e.ct || '', { name: e.name, color: e.color }])).entries()];
   const exNames = [...new Map(rows.map(r => [r.exercise_id, r.exercise_name])).entries()];
+  const exInfo = exNames.length ? await q(sb.from('exercises').select('id, muscle_group').in('id', exNames.map(e => e[0]))) : [];
+  const MG = Object.fromEntries(exInfo.map(e => [e.id, e.muscle_group || 'Άλλο']));
+  const groups = [...new Set(exNames.map(([i]) => MG[i] || 'Άλλο'))].sort((a, b) => a.localeCompare(b, 'el'));
   const seg = id2 => `<div class="seg mini" id="${id2}" style="width:auto"><button data-p="w" class="active">Εβδομάδα</button><button data-p="m">Μήνας</button></div>`;
   view.innerHTML = `<h1>Ιστορικό</h1>
     <div class="kpis"><div class="kpi accent"><b>${ent.filter(e => e.day.slice(0, 7) === thisM).length}</b><span>προπονήσεις αυτόν τον μήνα</span></div>
       <div class="kpi"><b>${ent.filter(e => wk(e.day) === thisW).length}</b><span>αυτή την εβδομάδα</span></div></div>
     <div class="card"><div class="row between nowrap"><b>Προπονήσεις</b>${seg('pT')}</div><div class="chart-box" style="height:170px;margin-top:10px"><canvas id="chT"></canvas></div></div>
     ${acts.length > 1 ? `<div class="card"><div class="row between nowrap"><b>Ανά δραστηριότητα</b>${seg('pA')}</div><div class="chart-box" style="height:190px;margin-top:10px"><canvas id="chA"></canvas></div></div>` : ''}
-    ${exNames.length ? `<div class="card"><b>Κιλά ανά άσκηση</b><div class="ex-pills" id="exP">${exNames.map(([i, n], k) => `<button class="${k ? '' : 'active'}" data-ex="${i}">${esc(n)}</button>`).join('')}</div>
+    ${exNames.length ? `<div class="card"><b>Κιλά ανά άσκηση</b>
+      <div class="chips" id="mgP" style="margin:10px 0 6px">${groups.map((g, k) => `<button class="chip ${k ? '' : 'active'}" data-mg="${esc(g)}">${esc(g)}</button>`).join('')}</div>
+      <div class="ex-pills" id="exP"></div>
       <div class="chart-box" style="height:190px"><canvas id="chK"></canvas></div></div>` : ''}
     <h2>Προπονήσεις</h2>
     ${ent.length ? `<div class="card" style="padding:4px 14px">${ent.slice(0, 40).map((e, i) => `
@@ -1848,8 +1853,15 @@ routes.progress = async view => {
         datasets: [{ data: xs.map(r => +r.top_weight), borderColor: brand, backgroundColor: brand + '22', fill: true, tension: .3, pointRadius: 3 }] },
         options: { maintainAspectRatio: false, plugins: { legend: { display: false } },
           scales: { x: { ticks: { maxTicksLimit: 5, maxRotation: 0 } }, y: { ticks: { callback: v => v + ' κ.' } } } } }); };
-    $$('#exP button').forEach(b => b.onclick = () => { $$('#exP button').forEach(x => x.classList.toggle('active', x === b)); drawK(b.dataset.ex); });
-    drawK(exNames[0][0]);
+    // Πρώτα κατηγορία (πόδια, χέρια…), μετά οι ασκήσεις της που έχουν γίνει
+    const showGroup = g => {
+      const xs = exNames.filter(([i]) => (MG[i] || 'Άλλο') === g);
+      $('#exP').innerHTML = xs.map(([i, n], k) => `<button class="${k ? '' : 'active'}" data-ex="${i}">${esc(n)}</button>`).join('');
+      $$('#exP button').forEach(b => b.onclick = () => { $$('#exP button').forEach(x => x.classList.toggle('active', x === b)); drawK(b.dataset.ex); });
+      if (xs.length) drawK(xs[0][0]);
+    };
+    $$('#mgP [data-mg]').forEach(b => b.onclick = () => { $$('#mgP [data-mg]').forEach(x => x.classList.toggle('active', x === b)); showGroup(b.dataset.mg); });
+    showGroup(groups[0]);
   }
   // Πάτημα σε προπόνηση: ασκήσεις και σετ
   $$('[data-sess]', view).forEach(b => b.onclick = async () => {
@@ -2231,8 +2243,8 @@ async function classSetup(view) {
 routes.book = async view => {
   const g = st.cur.gym_id, gy = await q(sb.from('gyms').select('book_ahead_days, cancel_hours').eq('id', g).single());
   const ahead = Math.min(28, gy?.book_ahead_days || 14);
-  let sel = todayISO(), ss = [];
-  view.innerHTML = `<h1>Κλείσε ραντεβού ${help('book')}</h1><div id="mine"></div><div id="strip"></div><div id="list"></div>
+  let sel = todayISO(), ss = [], fAct = '';
+  view.innerHTML = `<h1>Κλείσε ραντεβού ${help('book')}</h1><div id="mine"></div><div id="strip"></div><div id="acts"></div><div id="list"></div>
     <p class="tiny muted center">Ακύρωση έως ${gy?.cancel_hours ?? 2} ώρες πριν.</p>`;
   const load = async () => { ss = await q(sb.rpc('sessions_for', { p_gym: g, p_from: todayISO(), p_to: addDays(todayISO(), ahead) })); draw(); };
   const act = async (fn, args, msg) => { try { const r = await q(sb.rpc(fn, args)); toast(msg(r)); await load(); } catch {} };
@@ -2248,7 +2260,13 @@ routes.book = async view => {
     ss.forEach(x => { if (visible(x)) { const d = athDay(x.starts_at); counts[d] = (counts[d] || 0) + 1; } });
     $('#strip').innerHTML = `<h2>Ελεύθερες ώρες</h2>` + dayStrip(days, sel, counts);
     // Όλες οι δραστηριότητες σε μία λίστα. Personal = ώρα με μία θέση (οι πιασμένες δεν φαίνονται)
-    const xs = ss.filter(x => athDay(x.starts_at) === sel && visible(x)).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+    const dayXs = ss.filter(x => athDay(x.starts_at) === sel && visible(x)).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+    // Φίλτρο δραστηριότητας (Gym, Personal, Kick box…) για την ημέρα
+    const acts = [...new Map(dayXs.map(x => [x.class_type_id, { name: x.name, color: x.color }])).entries()];
+    if (fAct && !acts.some(([k]) => k === fAct)) fAct = '';
+    $('#acts').innerHTML = acts.length > 1 ? `<div class="chips act-chips"><button class="chip ${fAct ? '' : 'active'}" data-act="">Όλα</button>${acts.map(([k, a]) =>
+      `<button class="chip ${fAct === k ? 'active' : ''}" data-act="${k}"><span class="ses-dot" style="background:${esc(a.color)}"></span>${esc(a.name)}</button>`).join('')}</div>` : '';
+    const xs = dayXs.filter(x => !fAct || x.class_type_id === fAct);
     const free = x => x.capacity - x.booked;
     const sub = x => x.kind === 'personal' ? (mine(x) ? 'δικό σου' : 'ελεύθερο') : (free(x) <= 0 ? 'πλήρες' : free(x) + (free(x) === 1 ? ' ελεύθερη θέση' : ' ελεύθερες θέσεις'));
     const btn = x => mine(x) ? `<button class="btn secondary small" data-cancel="${x.my_booking}">${icon('check', 'sm')}Κλεισμένο</button>`
@@ -2260,6 +2278,7 @@ routes.book = async view => {
           <div class="small muted">${x.coach_name ? esc(x.coach_name) + ' · ' : ''}${sub(x)}</div></div>${btn(x)}</div>`).join('')}</div>`
       : `<div class="card empty">${icon('cal')}<p>Δεν υπάρχουν ελεύθερες ώρες αυτή την ημέρα.</p></div>`;
     $$('#strip [data-day]').forEach(b => b.onclick = () => { sel = b.dataset.day; draw(); });
+    $$('#acts [data-act]').forEach(b => b.onclick = () => { fAct = b.dataset.act; draw(); });
     $$('[data-book]', view).forEach(b => b.onclick = () => act('book_session', { p_session: b.dataset.book }, () => 'Η θέση σας κλείστηκε ✓'));
     $$('[data-cancel]', view).forEach(b => b.onclick = () => confirmSheet('Ακύρωση κράτησης', 'Να ακυρωθεί η κράτηση;', 'Ακύρωση κράτησης',
       () => act('cancel_booking', { p_booking: b.dataset.cancel }, () => 'Η κράτηση ακυρώθηκε'), true));
