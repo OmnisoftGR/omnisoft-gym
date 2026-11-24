@@ -785,8 +785,7 @@ routes.athlete = async (view, id) => {
     <div class="card"><div class="row between nowrap"><div class="grow" style="min-width:0">
       <span class="badge ${SUB[sub.status][0]}">${SUB[sub.status][1]}</span>${sub.has_debt && owner ? ' <span class="badge b-bad">Οφειλή</span>' : ''}
       <div class="small muted" style="margin-top:4px">${esc(subLine(sub))}</div></div></div>
-      ${owner ? `<div class="sub-acts"><button class="btn big-btn" id="subC">${icon('wallet', 'sm')}Συνδρομή</button>
-        <button class="btn secondary big-btn" id="ledger">${icon('book', 'sm')}Καρτέλα πελάτη</button></div>` : ''}</div>
+      ${owner ? `<button class="btn block" style="margin-top:12px" id="subC">${icon('wallet', 'sm')}Συνδρομή & πληρωμές</button>` : ''}</div>
 
     ${flagged.length ? `<div class="card" style="border-color:var(--warn-line);background:var(--warn-soft)"><div class="row nowrap">${icon('alert')}<b>Χρειάζεται προσοχή</b></div>
       <div class="small" style="margin-top:6px">${[...new Map(flagged.map(f => [f.status, f])).values()].map(f =>
@@ -798,7 +797,6 @@ routes.athlete = async (view, id) => {
   if ($('#subC')) $('#subC').onclick = async () => { const D = await SUBS.load();
     if (!D.members.some(x => x.id === id)) D.members.push({ id, full_name: m.full_name, email: m.email, phone: m.phone });
     SUBS.memberSheet(id, D); };
-  if ($('#ledger')) $('#ledger').onclick = () => ledgerSheet(id, m.full_name);
   const draw = async () => {
     destroyCharts(); const el = $('#tabc');
     if (tab === 'hist') await athleteHistory(el, id, false);
@@ -814,23 +812,6 @@ routes.athlete = async (view, id) => {
   $$('#seg button').forEach(b => b.onclick = () => { tab = b.dataset.t; $$('#seg button').forEach(x => x.classList.toggle('active', x === b)); draw(); });
   draw();
 };
-// Καρτέλα πελάτη: συνδρομές (χρέωση) και πληρωμές (πίστωση) με προοδευτικό υπόλοιπο
-async function ledgerSheet(id, name) {
-  const [ms, ps] = await Promise.all([q(sb.from('memberships').select('*').eq('member_id', id)), q(sb.from('payments').select('*').eq('member_id', id))]);
-  const rows = [...ms.filter(x => x.status !== 'cancelled').map(x => ({ d: x.start_date, t: x.plan_name + (x.notes ? ' · ' + x.notes : ''), dr: +x.price, cr: 0 })),
-    ...ps.map(x => ({ d: x.paid_on, t: 'Πληρωμή · ' + METHOD[x.method] + (x.notes ? ' · ' + x.notes : ''), dr: 0, cr: +x.amount }))]
-    .sort((a, b) => a.d.localeCompare(b.d) || b.dr - a.dr);
-  let bal = 0; rows.forEach(r => { bal += r.dr - r.cr; r.bal = bal; });
-  sheet('Καρτέλα πελάτη', `<p class="small muted" style="margin-top:0">${esc(name)}</p>
-    <div class="card row between nowrap" style="${bal > 0.009 ? 'border-color:var(--b-bad);background:var(--bad-soft)' : ''}"><b>Υπόλοιπο</b>
-      <b style="font-size:22px;color:${bal > 0.009 ? 'var(--bad)' : 'var(--ok)'}">${bal > 0.009 ? money(bal) : bal < -0.009 ? 'Προπληρωμή ' + money(-bal) : 'Εξοφλημένος'}</b></div>
-    ${rows.length ? `<div class="ledger"><div class="lg-h"><span>Κίνηση</span><span>Ποσό</span><span>Υπόλοιπο</span></div>
-      ${rows.slice().reverse().map(r => `<div class="lg-r"><span><b>${esc(r.t)}</b><small>${fmtDate(r.d)}</small></span>
-        <span class="${r.cr ? 'ok' : ''}">${r.cr ? '−' + money(r.cr) : money(r.dr)}</span><b>${money(r.bal)}</b></div>`).join('')}</div>
-      <p class="tiny muted">Οι συνδρομές χρεώνουν, οι πληρωμές (πράσινο) πιστώνουν.</p>`
-      : '<div class="card empty">Καμία κίνηση</div>'}
-    <button class="btn block secondary" data-close style="margin-top:12px">Κλείσιμο</button>`);
-}
 const progBadge = x => x.is_template ? '<span class="badge b-info">Πρότυπο</span>' : x.active ? '<span class="badge b-ok">ενεργό</span>'
   : x.completed_at ? '<span class="badge b-muted">ολοκληρώθηκε</span>' : '<span class="badge b-muted">κλειστό</span>';
 
@@ -2486,33 +2467,40 @@ const SUBS = {
     $$('[data-kf]', el).forEach(c => c.onclick = () => setF(c.dataset.kf));
     draw();
   },
+  // Ενιαίο «Συνδρομή & πληρωμές»: κατάσταση/υπόλοιπο, 2 μεγάλα κουμπιά, ιστορικό κινήσεων με υπόλοιπο
   memberSheet(id, D) {
     const m = D.members.find(x => x.id === id), s = D.status[id] || { status: 'none' }, b = D.bal[id] || 0;
     const ms = D.mems.filter(x => x.member_id === id), ps = D.pays.filter(x => x.member_id === id);
     const cur = memState(ms).cur;
+    const rows = [...ms.filter(x => x.status !== 'cancelled').map(x => ({ d: x.start_date, t: x.plan_name,
+        sub: `${fmtDate(x.start_date)}${x.end_date ? ' – ' + fmtDate(x.end_date) : ''}${x.kind === 'visits' ? ` · ${x.visits_used}/${x.visits_total} επισκέψεις` : ''}${x.status === 'frozen' ? ' · σε πάγωμα' : ''}${x.notes ? ' · ' + x.notes : ''}`, dr: +x.price, cr: 0 })),
+      ...ps.map(x => ({ d: x.paid_on, t: 'Πληρωμή · ' + METHOD[x.method], sub: fmtDate(x.paid_on) + (x.notes ? ' · ' + x.notes : ''), dr: 0, cr: +x.amount, pid: x.id }))]
+      .sort((a, c) => a.d.localeCompare(c.d) || c.dr - a.dr);
+    let run = 0; rows.forEach(r => { run += r.dr - r.cr; r.bal = run; });
+    const debt = b > 0.009;
     sheet(m.full_name, `
-      <div class="card" style="background:var(--surface-2)"><div class="row between"><span class="badge ${SUB[s.status][0]}">${SUB[s.status][1]}</span>
-        <b style="color:${b > 0.009 ? 'var(--bad)' : 'var(--ok)'}">${b > 0.009 ? 'Οφειλή ' + money(b) : b < -0.009 ? 'Προπληρωμή ' + money(-b) : 'Εξοφλημένος'}</b></div>
-        <p style="margin:8px 0 0">${esc(subLine(s))}</p></div>
-      <div class="row" style="margin-bottom:8px"><button class="btn grow" data-a="new">${icon('plus', 'sm')}${cur ? 'Ανανέωση' : 'Νέα συνδρομή'}</button>
-        <button class="btn secondary grow" data-a="pay">${icon('euro', 'sm')}Πληρωμή</button></div>
-      ${cur && cur.status !== 'cancelled' ? `<div class="row"><button class="btn secondary small grow" data-a="freeze">${cur.status === 'frozen' ? 'Ξεπάγωμα' : 'Πάγωμα'}</button>
-        <button class="btn danger small grow" data-a="cancel">Ακύρωση συνδρομής</button></div>` : ''}
-      <h2>Συνδρομές</h2>${ms.map(x => `<div class="row nowrap" style="padding:8px 0;border-top:1px solid var(--line);${x.status === 'cancelled' ? 'opacity:.5' : ''}">
-        <div class="grow"><b>${esc(x.plan_name)}</b><div class="small muted">${fmtDate(x.start_date)}${x.end_date ? ' – ' + fmtDate(x.end_date) : ''}
-          ${x.kind === 'visits' ? ` · ${x.visits_used}/${x.visits_total} επισκέψεις` : ''}${x.frozen_days ? ` · πάγωμα ${x.frozen_days} ημ.` : ''}
-          ${x.status === 'cancelled' ? ' · ακυρωμένη' : x.status === 'frozen' ? ' · σε πάγωμα' : ''}</div></div><b>${money(x.price)}</b></div>`).join('') || '<p class="muted">—</p>'}
-      <h2>Πληρωμές</h2>${ps.map(x => `<div class="row nowrap" style="padding:8px 0;border-top:1px solid var(--line)">
-        <div class="grow"><b>${money(x.amount)}</b><div class="small muted">${fmtDate(x.paid_on)} · ${METHOD[x.method]}${x.notes ? ' · ' + esc(x.notes) : ''}</div></div>
-        <button class="icon-btn" data-delpay="${x.id}" title="Διαγραφή" style="color:var(--bad)">${icon('x', 'sm')}</button></div>`).join('') || '<p class="muted">—</p>'}
-      ${m.phone ? `<a class="btn secondary block" style="margin-top:12px" href="tel:${esc(m.phone)}">Κλήση ${esc(m.phone)}</a>` : ''}`, (el, close) => {
+      <div class="card sub-head ${debt ? 'debt' : ''}"><span class="badge ${SUB[s.status][0]}">${SUB[s.status][1]}</span>
+        <div class="sub-big" style="color:${debt ? 'var(--bad)' : 'var(--ok)'}">${debt ? 'Χρωστάει ' + money(b) : b < -0.009 ? 'Προπληρωμή ' + money(-b) : 'Εξοφλημένος'}</div>
+        <div class="small muted">${esc(subLine(s))}</div></div>
+      <div class="sub-acts" style="margin-bottom:14px"><button class="btn big-btn" data-a="new">${icon('plus', 'sm')}${cur ? 'Ανανέωση' : 'Νέα συνδρομή'}</button>
+        <button class="btn ${debt ? '' : 'secondary'} big-btn" data-a="pay">${icon('euro', 'sm')}Πληρωμή</button></div>
+      <h2 style="margin:0 0 6px">Ιστορικό</h2>
+      ${rows.length ? `<div class="ledger"><div class="lg-h"><span>Κίνηση</span><span>Ποσό</span><span>Υπόλοιπο</span></div>
+        ${rows.slice().reverse().map(r => `<div class="lg-r ${r.pid ? 'tap' : ''}" ${r.pid ? `data-delpay="${r.pid}"` : ''}><span><b>${esc(r.t)}</b><small>${esc(r.sub)}</small></span>
+          <span class="${r.cr ? 'ok' : ''}">${r.cr ? '−' + money(r.cr) : '+' + money(r.dr)}</span><b>${money(r.bal)}</b></div>`).join('')}</div>
+        <p class="tiny muted">Η συνδρομή προσθέτει στο υπόλοιπο, η πληρωμή (πράσινο) αφαιρεί. Πατήστε μια πληρωμή για διαγραφή.</p>`
+        : '<div class="card empty">Καμία κίνηση ακόμα</div>'}
+      <div class="row center" style="gap:18px;margin-top:10px">
+        ${cur && cur.status !== 'cancelled' ? `<button class="linkbtn small" data-a="freeze">${cur.status === 'frozen' ? 'Ξεπάγωμα' : 'Πάγωμα'} συνδρομής</button>
+          <button class="linkbtn small" data-a="cancel" style="color:var(--bad)">Ακύρωση συνδρομής</button>` : ''}
+        ${m.phone ? `<a class="linkbtn small" href="tel:${esc(m.phone)}">Κλήση ${esc(m.phone)}</a>` : ''}</div>`, (el, close) => {
       $('[data-a="new"]', el).onclick = () => { close(); SUBS.newSheet(id, D); };
       $('[data-a="pay"]', el).onclick = () => { close(); SUBS.paySheet(id, D); };
       const fz = $('[data-a="freeze"]', el);
       if (fz) fz.onclick = async () => { await q(sb.rpc('freeze_membership', { p_id: cur.id, p_freeze: cur.status !== 'frozen' })); close();
         toast(cur.status === 'frozen' ? 'Η λήξη μετατέθηκε κατά τις ημέρες παγώματος' : 'Η συνδρομή πάγωσε'); route(); };
       const cn = $('[data-a="cancel"]', el);
-      if (cn) cn.onclick = () => { close(); confirmSheet('Ακύρωση συνδρομής', `${cur.plan_name}: η συνδρομή ακυρώνεται και δεν μετράει στην οφειλή.`, 'Ακύρωση συνδρομής', async () => {
+      if (cn) cn.onclick = () => { close(); confirmSheet('Ακύρωση συνδρομής', `${cur.plan_name}: η συνδρομή ακυρώνεται και δεν μετράει στο υπόλοιπο.`, 'Ακύρωση συνδρομής', async () => {
         await q(sb.from('memberships').update({ status: 'cancelled' }).eq('id', cur.id)); route(); }, true); };
       $$('[data-delpay]', el).forEach(bt => bt.onclick = () => { close(); confirmSheet('Διαγραφή πληρωμής', 'Η πληρωμή θα διαγραφεί οριστικά.', 'Διαγραφή', async () => {
         await q(sb.from('payments').delete().eq('id', bt.dataset.delpay)); route(); }, true); });

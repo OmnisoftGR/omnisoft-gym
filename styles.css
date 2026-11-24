@@ -490,3 +490,8 @@ button.hist-row { cursor: pointer; }
 .meth-row { display: block; width: 100%; margin-top: 8px; padding: 6px 8px; border: 1px solid transparent; border-radius: 10px; background: none; font: inherit; color: inherit; cursor: pointer; text-align: left; }
 .meth-row.on { border-color: var(--brand); background: var(--brand-soft); }
 .meth-row.dim { opacity: .45; }
+.sub-head { text-align:center; background:var(--surface-2); }
+.sub-head.debt { border-color:var(--b-bad); background:var(--bad-soft); }
+.sub-big { font-size:26px; font-weight:800; margin:6px 0 2px; }
+.lg-r.tap { cursor:pointer; }
+.lg-r.tap:active { background:var(--surface-2); }
