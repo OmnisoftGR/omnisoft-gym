@@ -84,6 +84,7 @@ const IC = {
   print: '<path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
   timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/>',
   minus: '<path d="M5 12h14"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   cal: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
   play: '<circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4z"/>',
   clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
@@ -344,7 +345,7 @@ const HELP = {
   workout: ['Καταγραφή προπόνησης', `<h4>Βήμα βήμα</h4><ol>
     <li>Η εφαρμογή ανοίγει το πρόγραμμα που είναι σειρά του. Αν ο αθλητής έχει πολλά σε εναλλαγή, αλλάζετε από τα κουμπιά πάνω.</li>
     <li>Σε κάθε άσκηση ρυθμίστε κιλά και επαναλήψεις με τα <b>− / +</b>. Τα κιλά είναι ήδη συμπληρωμένα με την πρόταση της εφαρμογής.</li>
-    <li>Για άλλη τιμή, πατήστε πάνω στον αριθμό και γράψτε την, π.χ. 17,5.</li>
+    <li>Για άλλη τιμή, πατήστε τον αριθμό και γυρίστε τη ροδέλα. Πατήστε ξανά τον αριθμό για να τον γράψετε, π.χ. 17,5.</li>
     <li>Πατήστε <b>«Σετ 1 έγινε»</b> μετά από κάθε σετ. Τα επόμενα σετ παίρνουν τα ίδια κιλά.</li>
     <li>Στο τέλος πατήστε <b>«Ολοκλήρωση προπόνησης»</b>. Αποθηκεύονται μόνο τα σετ που σημειώθηκαν.</li></ol>
     <h4>Χρήσιμα</h4><ul><li>Σε ασκήσεις με χρόνο (π.χ. plank) πατήστε <b>«Έναρξη»</b> για αντίστροφη μέτρηση με ήχο στο τέλος.</li>
@@ -445,7 +446,7 @@ function tabsFor(m) {
   }
   if (m && m.is_athlete && active) {
     if (isStaff(m)) t.push(['today', 'Η προπόνησή μου', 'play'], ['card', 'Η συνδρομή μου', 'wallet']);
-    else t.push(['today', 'Προπόνηση', 'play'], ['book', 'Κρατήσεις', 'cal'], ['card', 'Συνδρομή', 'wallet'], ['progress', 'Πρόοδος', 'trend'], ['history', 'Ιστορικό', 'clock']);
+    else t.push(['me', 'Αρχική', 'home'], ['progress', 'Πρόοδος', 'trend'], ['profile', 'Εγώ', 'user']);
   }
   if (m && m.is_owner && active) t.push(['settings', 'Ρυθμίσεις', 'cog']);
   if (st.isAdmin) t.push(['admin', 'Διαχείριση', 'shield']);
@@ -500,12 +501,12 @@ async function route() {
   const tabs = tabsFor(st.cur);
   let [name, arg] = location.hash.replace(/^#\/?/, '').split('/');
   const staffOnly = PARENT[name] && isStaff(st.cur);
-  const athleteExtra = ['history', 'progress'].includes(name) && st.cur?.is_athlete;
+  const athleteExtra = ['history', 'progress', 'today', 'book', 'card'].includes(name) && st.cur?.is_athlete;
   if (!routes[name] || (!tabs.find(t => t[0] === name) && !staffOnly && !athleteExtra)) {
     name = tabs[0] ? tabs[0][0] : 'admin';
     if (location.hash !== '#/' + name) history.replaceState(null, '', '#/' + name);
   }
-  const key = PARENT[name] || name;
+  const key = !isStaff(st.cur) && st.cur?.is_athlete ? ({ today: 'me', book: 'me', history: 'progress', card: 'profile' }[name] || name) : (PARENT[name] || name);
   $$('.tabs a, .bottomnav a').forEach(a => a.classList.toggle('active', a.dataset.k === key));
   $('#moreBtn')?.classList.toggle('active', (st.extraKeys || []).includes(key));
   const view = $('#view'); view.innerHTML = '<p class="muted">Φόρτωση…</p>';
@@ -746,6 +747,7 @@ routes.athlete = async (view, id) => {
     q(sb.rpc('activity_counts', { p_member: id, p_days: 28 }))
   ]);
   const s0 = stat[0] || {}, PL = s0.programs || [], sub = subs.find(x => x.member_id === id) || { status: 'none' };
+  const lastBw = ((await sb.from('body_weights').select('weight_kg, measured_on').eq('member_id', id).order('measured_on', { ascending: false }).limit(1)).data || [])[0];
   const flagged = sugg.filter(s => ['deload', 'decrease', 'stall'].includes(s.status));
   let tab = 'sugg';
   view.innerHTML = `
@@ -754,6 +756,8 @@ routes.athlete = async (view, id) => {
       <h1 style="margin:0">${esc(m.full_name)}</h1><div class="muted small">${esc(m.goal || 'Χωρίς στόχο')} · τελευταία φορά ${relDays(s0.days_absent)}</div></div>
       <button class="icon-btn" id="editM" title="Στοιχεία & σημειώσεις" aria-label="Στοιχεία και σημειώσεις">${icon('cog', 'sm')}</button></div>
       ${m.notes ? `<div class="note-box">${icon('alert', 'sm')}<span>${esc(m.notes)}</span></div>` : ''}
+      ${m.athlete_notes ? `<div class="small" style="margin-top:8px"><b>Σχόλια αθλητή:</b> ${esc(m.athlete_notes)}</div>` : ''}
+      ${m.height_cm || lastBw ? `<div class="small muted" style="margin-top:4px">${[m.height_cm ? m.height_cm + ' εκ.' : '', lastBw ? fmtNum(lastBw.weight_kg) + ' κ. (' + fmtDate(lastBw.measured_on) + ')' : ''].filter(Boolean).join(' · ')}</div>` : ''}
       <a class="btn block" href="#/log/${id}" style="margin-top:12px">${icon('play', 'sm')}Καταγραφή προπόνησης</a></div>
 
     <div class="row between nowrap" style="margin:4px 0 8px"><h2 style="margin:0">Προγράμματα ${help('rotation')}</h2>
@@ -1322,6 +1326,31 @@ routes.settings = async view => {
 routes.today = view => renderWorkout(view, st.cur.member_id, 'athlete');
 routes.log = (view, athleteId) => renderWorkout(view, athleteId, 'coach');
 
+// Ροδέλα επιλογής αριθμού πάνω από ένα stepper. onPick: αλλαγή τιμής · onType: πάτημα στη μεσαία τιμή → πληκτρολόγιο
+function openWheel(anchor, value, step, max, onPick, onType) {
+  document.querySelector('.wheel-bg')?.remove();
+  step = step || 1;
+  const vals = []; for (let v = 0; v <= max + 1e-9; v = Math.round((v + step) * 100) / 100) vals.push(v);
+  if (!vals.some(v => Math.abs(v - value) < 1e-9)) { vals.push(value); vals.sort((a, b) => a - b); }
+  const H = 44, r = anchor.getBoundingClientRect();
+  const bg = document.createElement('div'); bg.className = 'wheel-bg';
+  const top = Math.max(8, Math.min(window.innerHeight - 5 * H - 8, r.top + r.height / 2 - 2.5 * H));
+  bg.innerHTML = `<div class="wheel" style="top:${top}px;left:${r.left}px;width:${r.width}px">
+    <div class="wheel-sel"></div><div class="wheel-list">${vals.map(v => `<div class="wheel-item" data-v="${v}">${fmtNum(v)}</div>`).join('')}</div></div>`;
+  document.body.appendChild(bg);
+  const list = bg.querySelector('.wheel-list'), items = [...list.children];
+  let idx = vals.findIndex(v => Math.abs(v - value) < 1e-9), t = null;
+  const mark = () => items.forEach((it, i) => it.classList.toggle('on', i === idx));
+  list.scrollTop = idx * H; mark();
+  list.onscroll = () => { const i = Math.max(0, Math.min(items.length - 1, Math.round(list.scrollTop / H)));
+    if (i !== idx) { idx = i; mark(); onPick(vals[idx]); if (navigator.vibrate) navigator.vibrate(5); }
+    clearTimeout(t); t = setTimeout(() => { list.scrollTo({ top: idx * H, behavior: 'smooth' }); }, 120); };
+  const close = () => bg.remove();
+  bg.onclick = e => { if (!e.target.closest('.wheel')) close(); };
+  items.forEach((it, i) => it.onclick = () => {
+    if (i === idx) { close(); onType(); } else list.scrollTo({ top: i * H, behavior: 'smooth' }); });
+}
+
 async function renderWorkout(view, athleteId, source) {
   const [stat0, actP] = await Promise.all([
     q(sb.from('v_athlete_status').select('next_program_id, programs').eq('athlete_id', athleteId)),
@@ -1393,7 +1422,7 @@ async function renderWorkout(view, athleteId, source) {
   const stepOf = pe => ({ w: +pe.exercises.increment_kg || 1, r: 1, s: 5, tm: 1, ts: 5 });
   const setTxt = (x, m) => m === 'time' ? dur(x.s) : m === 'reps_weight' ? `${fmtNum(x.w) || 0} × ${fmtNum(x.r) || 0}` : `${fmtNum(x.r) || 0} επ.`;
   const stepper = (k, v, unit) => `<div class="stepper" data-stp="${k}"><button data-step="-1" aria-label="Λιγότερα">${icon('minus')}</button>
-    <label><input inputmode="decimal" data-k="${k}" value="${fmtNum(v)}" aria-label="${unit}"><span>${unit}</span></label>
+    <label><input inputmode="decimal" readonly data-k="${k}" value="${fmtNum(v)}" aria-label="${unit}"><span>${unit}</span></label>
     <button data-step="1" aria-label="Περισσότερα">${icon('plus')}</button></div>`;
   let timer = null;   // { ei, si, left, total }
 
@@ -1476,8 +1505,14 @@ async function renderWorkout(view, athleteId, source) {
         inp.value = fmtNum(v); setVal(k, v); saveDraft();
 
       });
-      inp.onfocus = () => inp.select();
+      inp.onfocus = () => { if (!inp.readOnly) inp.select(); };
       inp.oninput = () => { setVal(k, inp.value); saveDraft(); };
+      inp.onblur = () => { inp.readOnly = true; };
+      // 1ο πάτημα: ροδέλα · πάτημα στον αριθμό της ροδέλας: πληκτρολόγιο
+      inp.onclick = () => { if (!inp.readOnly) return;
+        openWheel(sp, num(inp.value) || 0, step[k], k === 'ts' ? 55 : k === 'tm' ? 60 : k === 'w' ? 400 : 100,
+          v => { inp.value = fmtNum(v); setVal(k, v); saveDraft(); },
+          () => { inp.readOnly = false; inp.focus(); inp.select(); }); };
     });
     const doneBtn = $('[data-done]', card);
     if (doneBtn) doneBtn.onclick = () => {
@@ -1557,7 +1592,7 @@ async function renderWorkout(view, athleteId, source) {
         <div class="kpi"><b>${Math.round(vol).toLocaleString('el-GR')}</b><span>κιλά συνολικά</span></div>
         ${source === 'athlete' ? `<div class="kpi"><b>${mins}′</b><span>διάρκεια</span></div>` : ''}</div></div>
       ${prs.length ? `<div class="card"><div class="row nowrap">${icon('flame')}<b>Νέα ρεκόρ!</b></div>${prs.join('')}</div>` : ''}
-      <a class="btn block" href="${source === 'coach' ? '#/athlete/' + athleteId : (isStaff(st.cur) ? '#/athletes' : '#/progress')}">Συνέχεια</a>`;
+      <a class="btn block" href="${source === 'coach' ? '#/athlete/' + athleteId : (isStaff(st.cur) ? '#/athletes' : '#/me')}">Συνέχεια</a>`;
   }
 
   state = initState(); draw();
@@ -1587,7 +1622,6 @@ async function renderHistory(el, athleteId, limit = 40) {
     }).join('');
   }).join('');
 }
-routes.history = async view => { view.innerHTML = '<h1>Ιστορικό</h1><div id="h"></div>'; await renderHistory($('#h'), st.cur.member_id); };
 
 async function renderProgress(el, athleteId) {
   const rows = await q(sb.from('v_exercise_progress').select('*').eq('athlete_id', athleteId).order('performed_on'));
@@ -1628,7 +1662,146 @@ async function renderProgress(el, athleteId) {
   };
   $('#exSel', el).onchange = e => drawChart(e.target.value); drawChart(exNames[0][0]);
 }
+// =====================================================================
+// Αθλητής: αρχική (Προπόνηση · Κράτηση) και απλή πρόοδος
+// =====================================================================
+routes.me = async view => {
+  const id = st.cur.member_id, g = st.cur.gym_id;
+  const [stat, ss, ms] = await Promise.all([
+    q(sb.from('v_athlete_status').select('next_program_id, programs').eq('athlete_id', id)),
+    q(sb.rpc('sessions_for', { p_gym: g, p_from: todayISO(), p_to: addDays(todayISO(), 14) })),
+    q(sb.from('memberships').select('*').eq('member_id', id).order('start_date', { ascending: false }))]);
+  const pr = (stat[0]?.programs || []).find(x => x.id === stat[0]?.next_program_id);
+  const now = Date.now(), up = ss.filter(x => ['booked', 'waitlist'].includes(x.my_status) && new Date(x.ends_at).getTime() > now)
+    .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+  const { cur, valid } = memState(ms);
+  const first = (st.cur.full_name || '').split(/\s+/)[0];
+  const sub = !cur ? '' : !valid ? `<a class="card row nowrap tap" href="#/card" style="text-decoration:none;color:inherit"><span class="badge ${SUB.expired[0]}">${cur.status === 'frozen' ? 'Σε πάγωμα' : 'Η συνδρομή έληξε'}</span><span class="grow small muted">Επικοινώνησε με το γυμναστήριο</span>${icon('right', 'sm')}</a>`
+    : `<a class="card row nowrap tap" href="#/card" style="text-decoration:none;color:inherit">${icon('wallet', 'sm')}<span class="grow small">${esc(cur.plan_name)} · ${cur.kind === 'visits' ? `${cur.visits_total - cur.visits_used} επισκέψεις` : cur.end_date ? 'έως ' + fmtDate(cur.end_date) : ''}</span>${icon('right', 'sm')}</a>`;
+  view.innerHTML = `<h1>Γεια σου${first ? ' ' + esc(first) : ''}!</h1>
+    <div class="home-big">
+      <a class="big-tile primary" href="#/today">${icon('play')}<b>Προπόνηση</b><span>${pr ? `${pr.activity ? esc(pr.activity) + ' · ' : ''}Πρόγραμμα ${pr.seq || ''} · ${Math.min((pr.done || 0) + 1, pr.total || 0)} από ${pr.total || ''}` : 'Ξεκίνα την προπόνησή σου'}</span></a>
+      <a class="big-tile" href="#/book">${icon('cal')}<b>Κλείσε ραντεβού</b><span>${up.length ? `Επόμενο: ${DAYS[new Date(athDay(up[0].starts_at) + 'T12:00:00').getDay()]} ${hhmm(up[0].starts_at)}` : 'Δες τις ελεύθερες ώρες'}</span></a>
+    </div>
+    ${up.length ? `<h2>Τα ραντεβού μου</h2><div class="card" style="padding:4px 14px">${up.slice(0, 3).map((x, i) => `
+      <a class="row nowrap" href="#/book" style="padding:10px 0;text-decoration:none;color:inherit;${i ? 'border-top:1px solid var(--line)' : ''}"><span class="ses-dot" style="background:${esc(x.color)}"></span>
+        <div class="grow"><b>${esc(x.name)}</b><div class="small muted">${fmtDateDay(athDay(x.starts_at))} · ${hhmm(x.starts_at)}</div></div>
+        ${x.my_status === 'waitlist' ? '<span class="badge b-warn">αναμονή</span>' : ''}</a>`).join('')}</div>` : ''}
+    ${sub}`;
+};
+
+routes.profile = async view => {
+  const id = st.cur.member_id;
+  const [me, bw, ms] = await Promise.all([
+    q(sb.from('gym_members').select('full_name, email, phone, birth_year, height_cm, goal, athlete_notes').eq('id', id).single()),
+    q(sb.from('body_weights').select('id, measured_on, weight_kg').eq('member_id', id).order('measured_on', { ascending: false }).limit(60)),
+    q(sb.from('memberships').select('*').eq('member_id', id).order('start_date', { ascending: false }))]);
+  const { cur, valid } = memState(ms);
+  const last = bw[0], bmi = last && me.height_cm ? last.weight_kg / ((me.height_cm / 100) ** 2) : null;
+  const age = me.birth_year ? new Date().getFullYear() - me.birth_year : null;
+  const line = (l, v) => `<div class="row between nowrap" style="padding:9px 0;border-top:1px solid var(--line)"><span class="muted small">${l}</span><span>${v ?? '<span class="muted">–</span>'}</span></div>`;
+  view.innerHTML = `
+    <div class="card list-item">${avatar(me.full_name, 'lg')}<div class="grow" style="min-width:0"><h1 style="margin:0">${esc(me.full_name)}</h1>
+      <div class="small muted ellipsis">${esc(st.cur.gym_name)}${me.email ? ' · ' + esc(me.email) : ''}</div></div></div>
+
+    <a class="card row nowrap tap" href="#/card" style="text-decoration:none;color:inherit">${icon('wallet')}<div class="grow"><b>Συνδρομή</b>
+      <div class="small muted">${!cur ? 'Δεν υπάρχει συνδρομή' : !valid ? (cur.status === 'frozen' ? 'Σε πάγωμα' : 'Έληξε') : esc(cur.plan_name) + (cur.kind === 'visits' ? ` · ${cur.visits_total - cur.visits_used} επισκέψεις` : cur.end_date ? ' · έως ' + fmtDate(cur.end_date) : '')}</div></div>${icon('right', 'sm')}</a>
+
+    <div class="card"><div class="row between nowrap"><b>Βάρος</b><button class="btn small" id="addBw">${icon('plus', 'sm')}Καταγραφή</button></div>
+      ${last ? `<div class="row nowrap" style="gap:16px;margin:8px 0"><div><span style="font-size:30px;font-weight:800">${fmtNum(last.weight_kg)}</span> κ.</div>
+        <div class="small muted">${fmtDate(last.measured_on)}${bw[1] ? ` · ${last.weight_kg - bw[1].weight_kg > 0 ? '+' : ''}${fmtNum(Math.round((last.weight_kg - bw[1].weight_kg) * 10) / 10)} κ. από την προηγούμενη` : ''}${bmi ? `<br>ΔΜΣ ${fmtNum(Math.round(bmi * 10) / 10)}` : ''}</div></div>
+        ${bw.length > 1 ? '<div class="chart-box" style="height:150px"><canvas id="chBw"></canvas></div>' : ''}
+        <details style="margin-top:8px"><summary class="small muted" style="cursor:pointer">Ιστορικό (${bw.length})</summary>${bw.map(x => `<div class="row between nowrap small" style="padding:7px 0;border-top:1px solid var(--line)">
+          <span>${fmtDate(x.measured_on)}</span><span><b>${fmtNum(x.weight_kg)}</b> κ. <button class="linkbtn" data-delbw="${x.id}" aria-label="Διαγραφή">${icon('x', 'sm')}</button></span></div>`).join('')}</details>`
+        : '<p class="small muted" style="margin:8px 0 0">Γράψε το βάρος σου για να βλέπεις πώς αλλάζει.</p>'}</div>
+
+    <div class="card"><div class="row between nowrap"><b>Τα στοιχεία μου</b><button class="btn secondary small" id="editMe">Αλλαγή</button></div>
+      <div style="margin-top:6px">${line('Τηλέφωνο', me.phone ? esc(me.phone) : null)}${line('Ηλικία', age ? age + ' ετών' : null)}
+        ${line('Ύψος', me.height_cm ? me.height_cm + ' εκ.' : null)}${line('Στόχος', me.goal ? esc(me.goal) : null)}</div>
+      <div style="padding-top:9px;border-top:1px solid var(--line)"><span class="muted small">Σχόλια για τον προπονητή</span>
+        <div style="margin-top:4px;white-space:pre-wrap">${me.athlete_notes ? esc(me.athlete_notes) : '<span class="muted small">π.χ. τραυματισμοί, ώρες που μπορώ</span>'}</div></div></div>`;
+
+  if (bw.length > 1) {
+    const xs = bw.slice().reverse(), brand = getComputedStyle(document.documentElement).getPropertyValue('--brand').trim() || '#d71920';
+    st.charts.push(new Chart($('#chBw'), { type: 'line', data: { labels: xs.map(x => fmtDate(x.measured_on).slice(0, 5)),
+      datasets: [{ data: xs.map(x => +x.weight_kg), borderColor: brand, backgroundColor: brand + '22', fill: true, tension: .3, pointRadius: 3 }] },
+      options: { maintainAspectRatio: false, plugins: { legend: { display: false } },
+        scales: { x: { ticks: { maxTicksLimit: 5, maxRotation: 0 } }, y: { ticks: { callback: v => v + ' κ.' } } } } }));
+  }
+  $('#addBw').onclick = () => sheet('Καταγραφή βάρους', `<form id="bwF">
+      <div class="field"><label>Κιλά</label><input name="w" inputmode="decimal" required value="${last ? fmtNum(last.weight_kg) : ''}" style="font-size:24px;font-weight:700"></div>
+      <div class="field"><label>Ημερομηνία</label>${dateField('bwD', todayISO())}</div>
+      <button class="btn block" style="margin-top:14px">Αποθήκευση</button></form>`, (el, close) => {
+    bindDate('bwD'); const f = $('#bwF', el); f.w.focus(); f.w.select();
+    f.onsubmit = async e => { e.preventDefault(); const w = num(f.w.value);
+      if (!w || w < 20 || w > 400) { toast('Γράψτε τα κιλά, π.χ. 78,5', true); return; }
+      const d = $('#bwD', el).value || todayISO();
+      try { await q(sb.from('body_weights').insert({ member_id: id, gym_id: st.cur.gym_id, measured_on: d > todayISO() ? todayISO() : d, weight_kg: w }));
+        close(); toast('Καταχωρήθηκε'); route(); } catch {} }; });
+  $$('[data-delbw]').forEach(b => b.onclick = () => confirmSheet('Διαγραφή μέτρησης', 'Να διαγραφεί αυτή η μέτρηση;', 'Διαγραφή', async () => {
+    await q(sb.from('body_weights').delete().eq('id', b.dataset.delbw)); route(); }, true));
+  $('#editMe').onclick = () => sheet('Τα στοιχεία μου', `<form id="meF">
+      <div class="field"><label>Ονοματεπώνυμο</label><input name="n" value="${esc(me.full_name)}" required></div>
+      <div class="field"><label>Τηλέφωνο</label><input name="p" type="tel" value="${esc(me.phone || '')}"></div>
+      <div class="row"><div class="field grow"><label>Έτος γέννησης</label><input name="y" inputmode="numeric" value="${me.birth_year || ''}" placeholder="π.χ. 1990"></div>
+        <div class="field grow"><label>Ύψος (εκ.)</label><input name="h" inputmode="numeric" value="${me.height_cm || ''}" placeholder="π.χ. 178"></div></div>
+      <div class="field"><label>Στόχος</label><input name="g" value="${esc(me.goal || '')}" placeholder="π.χ. δύναμη, απώλεια βάρους"></div>
+      <div class="field"><label>Σχόλια για τον προπονητή</label><textarea name="c" rows="3" placeholder="π.χ. τραυματισμοί, ώρες που μπορώ">${esc(me.athlete_notes || '')}</textarea></div>
+      <button class="btn block" style="margin-top:14px">Αποθήκευση</button></form>`, (el, close) => {
+    const f = $('#meF', el);
+    f.onsubmit = async e => { e.preventDefault();
+      const y = num(f.y.value), h = num(f.h.value), yr = new Date().getFullYear();
+      if (y != null && (y < yr - 100 || y > yr - 5)) { toast('Ελέγξτε το έτος γέννησης', true); return; }
+      if (h != null && (h < 80 || h > 250)) { toast('Ελέγξτε το ύψος', true); return; }
+      try { await q(sb.rpc('update_my_profile', { p_member: id, p_full_name: f.n.value, p_phone: f.p.value, p_birth_year: y,
+          p_height_cm: h, p_goal: f.g.value, p_athlete_notes: f.c.value }));
+        close(); toast('Αποθηκεύτηκε'); await loadMe(); shell(); route(); } catch {} }; });
+};
+
+routes.history = view => { location.replace('#/progress'); };
 routes.progress = async view => {
+  if (isStaff(st.cur)) return routes.progressFull(view);
+  const id = st.cur.member_id, since = addDays(todayISO(), -7 * 12);
+  const [att, ss, rows] = await Promise.all([
+    q(sb.from('attendance').select('checked_in_at').eq('member_id', id).gte('checked_in_at', since + 'T00:00:00')),
+    q(sb.from('workout_sessions').select('id, performed_on, program_days(programs(seq, name, is_template)), workout_sets(id)').eq('athlete_id', id)
+      .order('performed_on', { ascending: false }).limit(20)),
+    q(sb.from('v_exercise_progress').select('exercise_id, exercise_name, performed_on, top_weight').eq('athlete_id', id).not('top_weight', 'is', null).order('performed_on'))]);
+  // ημέρες προπόνησης (παρουσίες + καταγεγραμμένες προπονήσεις), μία φορά ανά ημέρα
+  const days = new Set([...att.map(a => athDay(a.checked_in_at)), ...ss.map(s => s.performed_on)]);
+  const wk = d => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return isoOf(x); };
+  const thisW = wk(todayISO()), weeks = Array.from({ length: 12 }, (_, i) => addDays(thisW, -7 * (11 - i)));
+  const perW = Object.fromEntries(weeks.map(w => [w, 0])); days.forEach(d => { const w = wk(d); if (w in perW) perW[w]++; });
+  const month = [...days].filter(d => d.slice(0, 7) === todayISO().slice(0, 7)).length;
+  const exNames = [...new Map(rows.map(r => [r.exercise_id, r.exercise_name])).entries()];
+  view.innerHTML = `<h1>Η πρόοδός μου</h1>
+    <div class="kpis"><div class="kpi accent"><b>${month}</b><span>προπονήσεις αυτόν τον μήνα</span></div>
+      <div class="kpi"><b>${perW[thisW]}</b><span>αυτή την εβδομάδα</span></div></div>
+    <div class="card"><b>Προπονήσεις ανά εβδομάδα</b><div class="chart-box" style="height:170px;margin-top:8px"><canvas id="chW"></canvas></div></div>
+    ${exNames.length ? `<div class="card"><b>Κιλά ανά άσκηση</b><select id="exSel" style="margin:8px 0">${exNames.map(([i, n]) => `<option value="${i}">${esc(n)}</option>`).join('')}</select>
+      <div class="chart-box" style="height:190px"><canvas id="chK"></canvas></div></div>` : ''}
+    <h2>Ιστορικό</h2>
+    ${ss.filter(s => s.workout_sets.length).length ? `<div class="card" style="padding:4px 14px">${ss.filter(s => s.workout_sets.length).map((s, i) => `
+      <div class="row nowrap" style="padding:10px 0;${i ? 'border-top:1px solid var(--line)' : ''}">${icon('check', 'sm')}
+        <div class="grow"><b>${fmtDateDay(s.performed_on)}</b></div>
+        <span class="small muted">${esc(s.program_days?.programs ? progTitle(s.program_days.programs) : '')}</span></div>`).join('')}</div>`
+      : '<div class="card empty">Καμία καταγραφή ακόμα</div>'}`;
+  const brand = getComputedStyle(document.documentElement).getPropertyValue('--brand').trim() || '#d71920';
+  st.charts.push(new Chart($('#chW'), { type: 'bar', data: { labels: weeks.map(w => fmtDate(w).slice(0, 5)),
+    datasets: [{ data: weeks.map(w => perW[w]), backgroundColor: brand, borderRadius: 6 }] },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { x: { ticks: { maxTicksLimit: 6, maxRotation: 0 } }, y: { beginAtZero: true, ticks: { precision: 0 } } } } }));
+  if (!exNames.length) return;
+  let chK = null;
+  const drawK = ex => { if (chK) chK.destroy(); const xs = rows.filter(r => r.exercise_id === ex);
+    chK = new Chart($('#chK'), { type: 'line', data: { labels: xs.map(r => fmtDate(r.performed_on).slice(0, 5)),
+      datasets: [{ data: xs.map(r => +r.top_weight), borderColor: brand, backgroundColor: brand + '22', fill: true, tension: .3, pointRadius: 3 }] },
+      options: { maintainAspectRatio: false, plugins: { legend: { display: false } },
+        scales: { x: { ticks: { maxTicksLimit: 5, maxRotation: 0 } }, y: { ticks: { callback: v => v + ' κ.' } } } } });
+    st.charts.push(chK); };
+  $('#exSel').onchange = e => drawK(e.target.value); drawK(exNames[0][0]);
+};
+routes.progressFull = async view => {
   view.innerHTML = '<h1>Η πρόοδός μου</h1><div class="seg" id="seg"><button data-t="p" class="active">Πρόοδος</button><button data-t="s">Επόμενη προπόνηση</button></div><div id="c"></div>';
   const draw = async t => { destroyCharts(); const c = $('#c');
     if (t === 'p') await renderProgress(c, st.cur.member_id);
