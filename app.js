@@ -382,9 +382,8 @@ const HELP = {
     <p>Με ✕ αφαιρείτε μια ώρα από τις επόμενες εβδομάδες. Οι κανόνες κράτησης (ακύρωση, συνδρομή) είναι στις Ρυθμίσεις.</p>`],
   book: ['Κρατήσεις', `<ul><li>Διαλέξτε ημέρα από τη λωρίδα πάνω. Ο αριθμός κάτω από κάθε μέρα δείχνει πόσα τμήματα έχει.</li>
     <li>Πατήστε <b>«Κράτηση»</b> στο τμήμα που θέλετε. Στα personal διαλέγετε μια ελεύθερη ώρα.</li>
-    <li>Αν είναι γεμάτο, πατήστε <b>«Λίστα αναμονής»</b>. Η θέση σας κλείνει αυτόματα μόλις ακυρώσει κάποιος.</li>
     <li>Αν δεν μπορείτε να έρθετε, πατήστε <b>«Ακύρωση»</b> για να πάρει τη θέση άλλος. Το όριο ακύρωσης φαίνεται κάτω στη σελίδα.</li>
-    <li>Οι κρατήσεις σας εμφανίζονται πάνω πάνω, στο «Οι κρατήσεις μου».</li></ul>`],
+    <li>Τα ραντεβού σας εμφανίζονται πάνω πάνω, στο «Τα ραντεβού μου».</li></ul>`],
   subs: ['Συνδρομές · πώς δουλεύουν', `
     <p>Εδώ ο ιδιοκτήτης βλέπει ποιος έχει πληρώσει και μέχρι πότε. Η λογική είναι απλή: <b>πουλάτε ένα πακέτο</b> στον αθλητή (συνδρομή)
       και <b>καταγράφετε τι πλήρωσε</b> (πληρωμή). Η διαφορά τους είναι η οφειλή.</p>
@@ -446,7 +445,7 @@ function tabsFor(m) {
   }
   if (m && m.is_athlete && active) {
     if (isStaff(m)) t.push(['today', 'Η προπόνησή μου', 'play'], ['card', 'Η συνδρομή μου', 'wallet']);
-    else t.push(['me', 'Αρχική', 'home'], ['progress', 'Πρόοδος', 'trend'], ['profile', 'Εγώ', 'user']);
+    else t.push(['me', 'Αρχική', 'home'], ['card', 'Συνδρομή', 'wallet'], ['progress', 'Ιστορικό', 'clock'], ['profile', 'Προφίλ', 'user']);
   }
   if (m && m.is_owner && active) t.push(['settings', 'Ρυθμίσεις', 'cog']);
   if (st.isAdmin) t.push(['admin', 'Διαχείριση', 'shield']);
@@ -506,7 +505,7 @@ async function route() {
     name = tabs[0] ? tabs[0][0] : 'admin';
     if (location.hash !== '#/' + name) history.replaceState(null, '', '#/' + name);
   }
-  const key = !isStaff(st.cur) && st.cur?.is_athlete ? ({ today: 'me', book: 'me', history: 'progress', card: 'profile' }[name] || name) : (PARENT[name] || name);
+  const key = !isStaff(st.cur) && st.cur?.is_athlete ? ({ today: 'me', book: 'me', history: 'progress' }[name] || name) : (PARENT[name] || name);
   $$('.tabs a, .bottomnav a').forEach(a => a.classList.toggle('active', a.dataset.k === key));
   $('#moreBtn')?.classList.toggle('active', (st.extraKeys || []).includes(key));
   const view = $('#view'); view.innerHTML = '<p class="muted">Φόρτωση…</p>';
@@ -1327,10 +1326,10 @@ routes.today = view => renderWorkout(view, st.cur.member_id, 'athlete');
 routes.log = (view, athleteId) => renderWorkout(view, athleteId, 'coach');
 
 // Ροδέλα επιλογής αριθμού πάνω από ένα stepper. onPick: αλλαγή τιμής · onType: πάτημα στη μεσαία τιμή → πληκτρολόγιο
-function openWheel(anchor, value, step, max, onPick, onType) {
+function openWheel(anchor, value, step, max, onPick, onType, min = 0) {
   document.querySelector('.wheel-bg')?.remove();
   step = step || 1;
-  const vals = []; for (let v = 0; v <= max + 1e-9; v = Math.round((v + step) * 100) / 100) vals.push(v);
+  const vals = []; for (let v = min; v <= max + 1e-9; v = Math.round((v + step) * 100) / 100) vals.push(v);
   if (!vals.some(v => Math.abs(v - value) < 1e-9)) { vals.push(value); vals.sort((a, b) => a - b); }
   const H = 44, r = anchor.getBoundingClientRect();
   const bg = document.createElement('div'); bg.className = 'wheel-bg';
@@ -1349,6 +1348,15 @@ function openWheel(anchor, value, step, max, onPick, onType) {
   bg.onclick = e => { if (!e.target.closest('.wheel')) close(); };
   items.forEach((it, i) => it.onclick = () => {
     if (i === idx) { close(); onType(); } else list.scrollTo({ top: i * H, behavior: 'smooth' }); });
+}
+
+// Πεδίο αριθμού με ροδέλα: 1ο πάτημα ροδέλα, πάτημα στη μεσαία τιμή → πληκτρολόγιο
+function wheelInput(inp, min, max, step, def) {
+  inp.readOnly = true; inp.classList.add('wheel-in');
+  inp.addEventListener('blur', () => { inp.readOnly = true; });
+  inp.addEventListener('click', () => { if (!inp.readOnly) return;
+    openWheel(inp, num(inp.value) ?? def, step, max, v => { inp.value = fmtNum(v); },
+      () => { inp.readOnly = false; inp.focus(); inp.select(); }, min); });
 }
 
 async function renderWorkout(view, athleteId, source) {
@@ -1396,13 +1404,15 @@ async function renderWorkout(view, athleteId, source) {
     if (prev[x.exercise_id].date === s.performed_on) prev[x.exercise_id].sets[x.set_no - 1] = x;
   }
   const bestE1 = {}; best.forEach(b => bestE1[b.exercise_id] = Math.max(bestE1[b.exercise_id] || 0, +b.est_1rm || 0));
-  const started = Date.now();
+  let started = Date.now();
   let state, date = todayISO();
   const draftKey = () => `draft_${athleteId}_${days[dayIdx].id}`;
+  const readDraft = i => { try { const d = JSON.parse(store.get(`draft_${athleteId}_${days[i].id}`) || 'null'); return d && d.date === todayISO() ? d : null; } catch { return null; } };
 
   function initState() {
-    const saved = store.get(draftKey());
-    if (saved) { try { const d = JSON.parse(saved); if (d.date === todayISO()) return d.ex; } catch {} }
+    const d = readDraft(dayIdx);
+    if (d) { if (d.t0) started = d.t0; return d.ex; }
+    started = Date.now();
     return days[dayIdx].program_exercises.map(pe => {
       const s = sMap[pe.id], pv = prev[pe.exercise_id], m = pe.exercises.metric_type;
       const w = s?.suggested_weight ?? pe.target_weight;
@@ -1413,7 +1423,7 @@ async function renderWorkout(view, athleteId, source) {
       }) };
     });
   }
-  const saveDraft = () => store.set(draftKey(), JSON.stringify({ date: todayISO(), ex: state }));
+  const saveDraft = () => store.set(draftKey(), JSON.stringify({ date: todayISO(), ex: state, t0: started }));
 
   // Τρέχον σετ ανά άσκηση: το πρώτο που δεν έχει γίνει (ή αυτό που διάλεξε ο χρήστης)
   const cur = {};
@@ -1429,9 +1439,10 @@ async function renderWorkout(view, athleteId, source) {
   function exBody(ei) {
     const d = days[dayIdx], pe = d.program_exercises[ei], m = pe.exercises.metric_type, S = state[ei], ci = curOf(ei), pv = prev[pe.exercise_id];
     const chips = S.sets.map((x, si) => `<button class="setchip ${x.done ? 'done' : ''} ${si === ci ? 'cur' : ''}" data-pick="${si}">
-      ${x.done ? icon('check', 'sm') + setTxt(x, m) : 'Σετ ' + (si + 1)}</button>`).join('');
+      ${x.done ? icon('check', 'sm') + setTxt(x, m) : 'Σετ ' + (si + 1)}</button>`).join('')
+      + `<button class="setchip pm" data-delset ${S.sets.length < 2 ? 'disabled' : ''} aria-label="Ένα σετ λιγότερο">−</button><button class="setchip pm" data-addset aria-label="Ένα σετ ακόμα">+</button>`;
     const prevTxt = pv ? `Προηγ. ${fmtDate(pv.date)}: ${pv.sets.filter(Boolean).map(x => setTxt({ w: x.weight, r: x.reps, s: x.seconds }, m)).join(' · ')}` : '';
-    if (ci < 0) return `<div class="setchips">${chips}</div><div class="ex-done">${icon('check', 'sm')}Ολοκληρώθηκε · <button class="linkbtn" data-addset>+ σετ</button></div>`;
+    if (ci < 0) return `<div class="setchips">${chips}</div><div class="ex-done">${icon('check', 'sm')}Ολοκληρώθηκε</div>`;
     const x = S.sets[ci], tm = timer && timer.ei === ei;
     let editor;
     if (m === 'time') editor = tm
@@ -1443,21 +1454,20 @@ async function renderWorkout(view, athleteId, source) {
     else editor = `<div class="steppers">${m === 'reps_weight' ? stepper('w', x.w, 'κιλά') : ''}${stepper('r', x.r, 'επαν.')}</div>
          <button class="btn block big-btn" data-done>${icon('check')}Σετ ${ci + 1} έγινε</button>`;
     return `<div class="setchips">${chips}</div><div class="editor">${editor}</div>
-      <div class="row between small muted" style="margin-top:8px"><span class="ellipsis">${esc(prevTxt)}</span>
-        <span class="nowrap"><button class="linkbtn" data-delset ${S.sets.length < 2 ? 'disabled' : ''}>− σετ</button> · <button class="linkbtn" data-addset>+ σετ</button></span></div>`;
+      ${prevTxt ? `<div class="small muted ellipsis" style="margin-top:8px">${esc(prevTxt)}</div>` : ''}`;
   }
 
   function draw() {
     const d = days[dayIdx];
     const total = state.reduce((a, e) => a + e.sets.length, 0), done = state.reduce((a, e) => a + e.sets.filter(s => s.done).length, 0);
     view.innerHTML = `
-      <div class="workout-bar"><div class="prog"><div class="row between nowrap small"><b>${done}/${total} σετ</b><span class="time" id="elapsed">00:00</span></div>
+      <div class="workout-bar"><div class="prog"><b class="small">${done}/${total} σετ</b>
         <div class="meter" style="margin-top:6px"><i style="width:${total ? 100 * done / total : 0}%"></i></div></div>
-        <button class="btn small" id="finish" ${done ? '' : 'disabled'}>Τέλος</button></div>
+        <span class="wk-time" id="elapsed">${fmtTime(Math.floor((Date.now() - started) / 1000))}</span>
+        <button class="btn" id="finish" ${done ? '' : 'disabled'}>Τέλος</button></div>
       ${source === 'coach' ? `<p class="small"><a href="#/athlete/${athleteId}" class="row nowrap" style="gap:2px;text-decoration:none">${icon('left', 'sm')}${esc(ath.full_name)}</a></p>` : ''}
       <h1 style="margin-bottom:4px">${source === 'coach' ? esc(ath.full_name) : 'Η προπόνησή μου'} ${help('workout')}</h1>
       <div class="muted small" style="margin-bottom:12px"><b>${esc(d.name)}</b> · Προπόνηση ${Math.min(d._done + 1, d._p.total_sessions)} από ${d._p.total_sessions}${last ? ` · τελευταία ${fmtDate(last.performed_on)}` : ''}</div>
-      ${days.length > 1 ? `<div class="chips">${days.map((x, i) => `<button class="chip ${i === dayIdx ? 'active' : ''}" data-day="${i}">${esc(x.name)} <span class="muted">${x._done}/${x._p.total_sessions}</span>${i === nextIdx ? ' <span class="badge b-brand">σειρά του</span>' : ''}</button>`).join('')}</div>` : ''}
       <div class="row" style="margin-bottom:12px"><span class="small muted">Ημερομηνία</span>${dateField('wdate', date)}</div>
       ${d.program_exercises.map((pe, ei) => { const ex = pe.exercises, s = sMap[pe.id], m = ex.metric_type;
         const [c, l] = s ? (statusInfo[s.status] || ['b-muted', '']) : ['b-muted', ''];
@@ -1467,9 +1477,11 @@ async function renderWorkout(view, athleteId, source) {
           ${s && s.status && !['new', 'hold', 'fixed'].includes(s.status) && m !== 'time' ? `<div class="suggest">${icon('trend', 'sm')}<div>${s.suggested_weight != null && m === 'reps_weight' ? `<b>${fmtNum(s.suggested_weight)} κ.</b> · ` : ''}${esc(s.reason)}
             <span class="badge ${c}">${l}</span></div></div>` : ''}
           <div class="exbody">${exBody(ei)}</div></div>`; }).join('')}
-      <button class="btn block" id="finish2" ${done ? '' : 'disabled'}>${icon('check', 'sm')}Ολοκλήρωση προπόνησης</button>`;
+      <button class="btn block" id="finish2" ${done ? '' : 'disabled'}>${icon('check', 'sm')}Ολοκλήρωση προπόνησης</button>
+      <button class="btn block ghost" id="cancelW" style="margin-top:8px">Ακύρωση προπόνησης</button>`;
 
-    $$('[data-day]').forEach(b => b.onclick = () => { stopTimer(); dayIdx = +b.dataset.day; state = initState(); Object.keys(cur).forEach(k => delete cur[k]); draw(); });
+    $('#cancelW').onclick = () => confirmSheet('Ακύρωση προπόνησης', 'Η προπόνηση δεν θα αποθηκευτεί. Μπορείτε να διαλέξετε άλλη.', 'Ακύρωση προπόνησης', () => {
+      stopTimer(); store.del(draftKey()); Object.keys(cur).forEach(k => delete cur[k]); pick(); }, true);
     bindDate('wdate', v => { date = v > todayISO() ? todayISO() : v; });
     $$('[data-show]').forEach(b => b.onclick = () => { const pe = d.program_exercises[+b.dataset.show];
       showExercise(pe.exercises.name, pe.exercises.animation_code, pe.exercises.muscle_group); });
@@ -1538,7 +1550,11 @@ async function renderWorkout(view, athleteId, source) {
     S.sets.forEach(z => { if (!z.done) { if (x.w !== '' && x.w != null) z.w = x.w; if (z.r === '' || z.r == null) z.r = x.r; if (z.s === '' || z.s == null) z.s = x.s; } });
     saveDraft(); if (navigator.vibrate) navigator.vibrate(30);
     redrawEx(ei);
-    if (nx < 0) { const nextCard = $(`[data-ei="${ei + 1}"]`); if (nextCard) setTimeout(() => nextCard.scrollIntoView({ behavior: 'smooth', block: 'start' }), 250); }
+    const toCard = c => { const bar = $('.workout-bar'), off = bar ? bar.getBoundingClientRect().bottom + 8 : 72;
+      window.scrollTo({ top: window.scrollY + c.getBoundingClientRect().top - off, behavior: 'smooth' }); };
+    if (nx < 0) { const nextCard = $(`[data-ei="${ei + 1}"]`); if (nextCard) setTimeout(() => toCard(nextCard), 250); }
+    else { const c = $(`[data-ei="${ei}"]`), bar = $('.workout-bar');
+      if (c && bar && c.getBoundingClientRect().top < bar.getBoundingClientRect().bottom) toCard(c); }
   }
 
   function startTimer(ei) {
@@ -1595,7 +1611,24 @@ async function renderWorkout(view, athleteId, source) {
       <a class="btn block" href="${source === 'coach' ? '#/athlete/' + athleteId : (isStaff(st.cur) ? '#/athletes' : '#/me')}">Συνέχεια</a>`;
   }
 
-  state = initState(); draw();
+  // Επιλογή προγράμματος πριν την έναρξη (προεπιλογή: αυτό που είναι σειρά του)
+  function pick() {
+    window.scrollTo(0, 0);
+    view.innerHTML = `
+      ${source === 'coach' ? `<p class="small"><a href="#/athlete/${athleteId}" class="row nowrap" style="gap:2px;text-decoration:none">${icon('left', 'sm')}${esc(ath.full_name)}</a></p>` : ''}
+      <h1 style="margin-bottom:4px">${source === 'coach' ? esc(ath.full_name) : 'Προπόνηση'}</h1>
+      <p class="muted small" style="margin-top:0">${days.length > 1 ? 'Διάλεξε πρόγραμμα. Είναι ήδη επιλεγμένο αυτό που είναι σειρά του.' : 'Το πρόγραμμά σου για σήμερα.'}</p>
+      ${days.map((d, i) => `<button class="card prog-pick ${i === dayIdx ? 'sel' : ''}" data-pd="${i}">
+        <div class="row between nowrap"><b>${esc(d.name)}</b>${i === nextIdx && days.length > 1 ? '<span class="badge b-brand">σειρά του</span>' : ''}</div>
+        <div class="small muted">Προπόνηση ${Math.min(d._done + 1, d._p.total_sessions)} από ${d._p.total_sessions} · ${d.program_exercises.length} ασκήσεις</div>
+        <div class="tiny muted" style="margin-top:4px">${esc(d.program_exercises.map(pe => pe.exercises.name).join(' · '))}</div></button>`).join('')}
+      <button class="btn block big-btn" id="startW" style="margin-top:6px">${icon('play')}Έναρξη</button>`;
+    $$('[data-pd]', view).forEach(b => b.onclick = () => { dayIdx = +b.dataset.pd; $$('[data-pd]', view).forEach(x => x.classList.toggle('sel', x === b)); });
+    $('#startW').onclick = () => { state = initState(); saveDraft(); draw(); window.scrollTo(0, 0); };
+  }
+  // Αν υπάρχει προπόνηση σε εξέλιξη σήμερα, συνεχίζει από εκεί
+  const live = days.findIndex((_, i) => readDraft(i));
+  if (live >= 0) { dayIdx = live; state = initState(); draw(); } else pick();
   const el = setInterval(() => { const e = $('#elapsed'); if (e) e.textContent = fmtTime(Math.floor((Date.now() - started) / 1000)); }, 1000);
   st.timers.push(el);
 }
@@ -1672,7 +1705,7 @@ routes.me = async view => {
     q(sb.rpc('sessions_for', { p_gym: g, p_from: todayISO(), p_to: addDays(todayISO(), 14) })),
     q(sb.from('memberships').select('*').eq('member_id', id).order('start_date', { ascending: false }))]);
   const pr = (stat[0]?.programs || []).find(x => x.id === stat[0]?.next_program_id);
-  const now = Date.now(), up = ss.filter(x => ['booked', 'waitlist'].includes(x.my_status) && new Date(x.ends_at).getTime() > now)
+  const now = Date.now(), up = ss.filter(x => x.my_status === 'booked' && new Date(x.ends_at).getTime() > now)
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   const { cur, valid } = memState(ms);
   const first = (st.cur.full_name || '').split(/\s+/)[0];
@@ -1680,23 +1713,20 @@ routes.me = async view => {
     : `<a class="card row nowrap tap" href="#/card" style="text-decoration:none;color:inherit">${icon('wallet', 'sm')}<span class="grow small">${esc(cur.plan_name)} · ${cur.kind === 'visits' ? `${cur.visits_total - cur.visits_used} επισκέψεις` : cur.end_date ? 'έως ' + fmtDate(cur.end_date) : ''}</span>${icon('right', 'sm')}</a>`;
   view.innerHTML = `<h1>Γεια σου${first ? ' ' + esc(first) : ''}!</h1>
     <div class="home-big">
-      <a class="big-tile primary" href="#/today">${icon('play')}<b>Προπόνηση</b><span>${pr ? `${pr.activity ? esc(pr.activity) + ' · ' : ''}Πρόγραμμα ${pr.seq || ''} · ${Math.min((pr.done || 0) + 1, pr.total || 0)} από ${pr.total || ''}` : 'Ξεκίνα την προπόνησή σου'}</span></a>
+      <a class="big-tile primary" href="#/today">${icon('play')}<b>Έναρξη προπόνησης</b><span>${pr ? `${pr.activity ? esc(pr.activity) + ' · ' : ''}Πρόγραμμα ${pr.seq || ''} · ${Math.min((pr.done || 0) + 1, pr.total || 0)} από ${pr.total || ''}` : 'Ξεκίνα την προπόνησή σου'}</span></a>
       <a class="big-tile" href="#/book">${icon('cal')}<b>Κλείσε ραντεβού</b><span>${up.length ? `Επόμενο: ${DAYS[new Date(athDay(up[0].starts_at) + 'T12:00:00').getDay()]} ${hhmm(up[0].starts_at)}` : 'Δες τις ελεύθερες ώρες'}</span></a>
     </div>
     ${up.length ? `<h2>Τα ραντεβού μου</h2><div class="card" style="padding:4px 14px">${up.slice(0, 3).map((x, i) => `
       <a class="row nowrap" href="#/book" style="padding:10px 0;text-decoration:none;color:inherit;${i ? 'border-top:1px solid var(--line)' : ''}"><span class="ses-dot" style="background:${esc(x.color)}"></span>
-        <div class="grow"><b>${esc(x.name)}</b><div class="small muted">${fmtDateDay(athDay(x.starts_at))} · ${hhmm(x.starts_at)}</div></div>
-        ${x.my_status === 'waitlist' ? '<span class="badge b-warn">αναμονή</span>' : ''}</a>`).join('')}</div>` : ''}
+        <div class="grow"><b>${esc(x.name)}</b><div class="small muted">${fmtDateDay(athDay(x.starts_at))} · ${hhmm(x.starts_at)}</div></div></a>`).join('')}</div>` : ''}
     ${sub}`;
 };
 
 routes.profile = async view => {
   const id = st.cur.member_id;
-  const [me, bw, ms] = await Promise.all([
+  const [me, bw] = await Promise.all([
     q(sb.from('gym_members').select('full_name, email, phone, birth_year, height_cm, goal, athlete_notes').eq('id', id).single()),
-    q(sb.from('body_weights').select('id, measured_on, weight_kg').eq('member_id', id).order('measured_on', { ascending: false }).limit(60)),
-    q(sb.from('memberships').select('*').eq('member_id', id).order('start_date', { ascending: false }))]);
-  const { cur, valid } = memState(ms);
+    q(sb.from('body_weights').select('id, measured_on, weight_kg').eq('member_id', id).order('measured_on', { ascending: false }).limit(60))]);
   const last = bw[0], bmi = last && me.height_cm ? last.weight_kg / ((me.height_cm / 100) ** 2) : null;
   const age = me.birth_year ? new Date().getFullYear() - me.birth_year : null;
   const line = (l, v) => `<div class="row between nowrap" style="padding:9px 0;border-top:1px solid var(--line)"><span class="muted small">${l}</span><span>${v ?? '<span class="muted">–</span>'}</span></div>`;
@@ -1704,11 +1734,8 @@ routes.profile = async view => {
     <div class="card list-item">${avatar(me.full_name, 'lg')}<div class="grow" style="min-width:0"><h1 style="margin:0">${esc(me.full_name)}</h1>
       <div class="small muted ellipsis">${esc(st.cur.gym_name)}${me.email ? ' · ' + esc(me.email) : ''}</div></div></div>
 
-    <a class="card row nowrap tap" href="#/card" style="text-decoration:none;color:inherit">${icon('wallet')}<div class="grow"><b>Συνδρομή</b>
-      <div class="small muted">${!cur ? 'Δεν υπάρχει συνδρομή' : !valid ? (cur.status === 'frozen' ? 'Σε πάγωμα' : 'Έληξε') : esc(cur.plan_name) + (cur.kind === 'visits' ? ` · ${cur.visits_total - cur.visits_used} επισκέψεις` : cur.end_date ? ' · έως ' + fmtDate(cur.end_date) : '')}</div></div>${icon('right', 'sm')}</a>
-
     <div class="card"><div class="row between nowrap"><b>Βάρος</b><button class="btn small" id="addBw">${icon('plus', 'sm')}Καταγραφή</button></div>
-      ${last ? `<div class="row nowrap" style="gap:16px;margin:8px 0"><div><span style="font-size:30px;font-weight:800">${fmtNum(last.weight_kg)}</span> κ.</div>
+      ${last ? `<div class="row nowrap" style="gap:16px;margin:8px 0"><div class="nowrap"><span style="font-size:30px;font-weight:800">${fmtNum(last.weight_kg)}</span> κ.</div>
         <div class="small muted">${fmtDate(last.measured_on)}${bw[1] ? ` · ${last.weight_kg - bw[1].weight_kg > 0 ? '+' : ''}${fmtNum(Math.round((last.weight_kg - bw[1].weight_kg) * 10) / 10)} κ. από την προηγούμενη` : ''}${bmi ? `<br>ΔΜΣ ${fmtNum(Math.round(bmi * 10) / 10)}` : ''}</div></div>
         ${bw.length > 1 ? '<div class="chart-box" style="height:150px"><canvas id="chBw"></canvas></div>' : ''}
         <details style="margin-top:8px"><summary class="small muted" style="cursor:pointer">Ιστορικό (${bw.length})</summary>${bw.map(x => `<div class="row between nowrap small" style="padding:7px 0;border-top:1px solid var(--line)">
@@ -1743,14 +1770,16 @@ routes.profile = async view => {
   $('#editMe').onclick = () => sheet('Τα στοιχεία μου', `<form id="meF">
       <div class="field"><label>Ονοματεπώνυμο</label><input name="n" value="${esc(me.full_name)}" required></div>
       <div class="field"><label>Τηλέφωνο</label><input name="p" type="tel" value="${esc(me.phone || '')}"></div>
-      <div class="row"><div class="field grow"><label>Έτος γέννησης</label><input name="y" inputmode="numeric" value="${me.birth_year || ''}" placeholder="π.χ. 1990"></div>
-        <div class="field grow"><label>Ύψος (εκ.)</label><input name="h" inputmode="numeric" value="${me.height_cm || ''}" placeholder="π.χ. 178"></div></div>
+      <div class="row"><div class="field grow"><label>Έτος γέννησης</label><input name="y" inputmode="numeric" value="${me.birth_year || ''}" placeholder="πατήστε"></div>
+        <div class="field grow"><label>Ύψος (εκ.)</label><input name="h" inputmode="numeric" value="${me.height_cm || ''}" placeholder="πατήστε"></div></div>
       <div class="field"><label>Στόχος</label><input name="g" value="${esc(me.goal || '')}" placeholder="π.χ. δύναμη, απώλεια βάρους"></div>
       <div class="field"><label>Σχόλια για τον προπονητή</label><textarea name="c" rows="3" placeholder="π.χ. τραυματισμοί, ώρες που μπορώ">${esc(me.athlete_notes || '')}</textarea></div>
       <button class="btn block" style="margin-top:14px">Αποθήκευση</button></form>`, (el, close) => {
-    const f = $('#meF', el);
+    const f = $('#meF', el), yr = new Date().getFullYear();
+    wheelInput(f.y, yr - 90, yr - 8, 1, 1990);
+    wheelInput(f.h, 120, 220, 1, 170);
     f.onsubmit = async e => { e.preventDefault();
-      const y = num(f.y.value), h = num(f.h.value), yr = new Date().getFullYear();
+      const y = num(f.y.value), h = num(f.h.value);
       if (y != null && (y < yr - 100 || y > yr - 5)) { toast('Ελέγξτε το έτος γέννησης', true); return; }
       if (h != null && (h < 80 || h > 250)) { toast('Ελέγξτε το ύψος', true); return; }
       try { await q(sb.rpc('update_my_profile', { p_member: id, p_full_name: f.n.value, p_phone: f.p.value, p_birth_year: y,
@@ -1759,48 +1788,82 @@ routes.profile = async view => {
 };
 
 routes.history = view => { location.replace('#/progress'); };
+
+// Ιστορικό αθλητή: γραφήματα (εβδομάδα/μήνας, ανά δραστηριότητα, κιλά ανά άσκηση) + λίστα προπονήσεων
 routes.progress = async view => {
   if (isStaff(st.cur)) return routes.progressFull(view);
-  const id = st.cur.member_id, since = addDays(todayISO(), -7 * 12);
+  const id = st.cur.member_id, since = addDays(todayISO(), -370);
   const [att, ss, rows] = await Promise.all([
-    q(sb.from('attendance').select('checked_in_at').eq('member_id', id).gte('checked_in_at', since + 'T00:00:00')),
-    q(sb.from('workout_sessions').select('id, performed_on, program_days(programs(seq, name, is_template)), workout_sets(id)').eq('athlete_id', id)
-      .order('performed_on', { ascending: false }).limit(20)),
+    q(sb.from('attendance').select('checked_in_at, class_type_id, class_types(name, color)').eq('member_id', id).gte('checked_in_at', since + 'T00:00:00')),
+    q(sb.from('workout_sessions').select('id, performed_on, program_days(programs(seq, name, is_template, class_type_id, class_types(name, color))), workout_sets(id)')
+      .eq('athlete_id', id).gte('performed_on', since).order('performed_on', { ascending: false })),
     q(sb.from('v_exercise_progress').select('exercise_id, exercise_name, performed_on, top_weight').eq('athlete_id', id).not('top_weight', 'is', null).order('performed_on'))]);
-  // ημέρες προπόνησης (παρουσίες + καταγεγραμμένες προπονήσεις), μία φορά ανά ημέρα
-  const days = new Set([...att.map(a => athDay(a.checked_in_at)), ...ss.map(s => s.performed_on)]);
+  // Μία εγγραφή ανά ημέρα και δραστηριότητα (gym το πρωί + kick box το απόγευμα = 2)
+  const E = new Map();
+  const put = (day, ct, name, color, sess) => { const k = day + '|' + (ct || ''); const e = E.get(k) || { day, ct, name: name || 'Προπόνηση', color: color || '#9ca3af' };
+    if (sess) e.sess = sess; E.set(k, e); };
+  att.forEach(a => put(athDay(a.checked_in_at), a.class_type_id, a.class_types?.name, a.class_types?.color));
+  ss.filter(s => s.workout_sets.length).forEach(s => { const pg = s.program_days?.programs;
+    put(s.performed_on, pg?.class_type_id, pg?.class_types?.name, pg?.class_types?.color, { id: s.id, title: pg ? progTitle(pg) : '' }); });
+  const ent = [...E.values()].sort((a, b) => b.day.localeCompare(a.day));
   const wk = d => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return isoOf(x); };
-  const thisW = wk(todayISO()), weeks = Array.from({ length: 12 }, (_, i) => addDays(thisW, -7 * (11 - i)));
-  const perW = Object.fromEntries(weeks.map(w => [w, 0])); days.forEach(d => { const w = wk(d); if (w in perW) perW[w]++; });
-  const month = [...days].filter(d => d.slice(0, 7) === todayISO().slice(0, 7)).length;
+  const thisW = wk(todayISO()), thisM = todayISO().slice(0, 7);
+  const P = {
+    w: { keys: Array.from({ length: 12 }, (_, i) => addDays(thisW, -7 * (11 - i))), of: e => wk(e.day), lbl: k => fmtDate(k).slice(0, 5) },
+    m: { keys: Array.from({ length: 12 }, (_, i) => { const d = new Date(thisM + '-15T12:00:00'); d.setMonth(d.getMonth() - (11 - i)); return isoOf(d).slice(0, 7); }),
+         of: e => e.day.slice(0, 7), lbl: k => MONTHS[+k.slice(5) - 1].slice(0, 3) } };
+  const acts = [...new Map(ent.map(e => [e.ct || '', { name: e.name, color: e.color }])).entries()];
   const exNames = [...new Map(rows.map(r => [r.exercise_id, r.exercise_name])).entries()];
-  view.innerHTML = `<h1>Η πρόοδός μου</h1>
-    <div class="kpis"><div class="kpi accent"><b>${month}</b><span>προπονήσεις αυτόν τον μήνα</span></div>
-      <div class="kpi"><b>${perW[thisW]}</b><span>αυτή την εβδομάδα</span></div></div>
-    <div class="card"><b>Προπονήσεις ανά εβδομάδα</b><div class="chart-box" style="height:170px;margin-top:8px"><canvas id="chW"></canvas></div></div>
-    ${exNames.length ? `<div class="card"><b>Κιλά ανά άσκηση</b><select id="exSel" style="margin:8px 0">${exNames.map(([i, n]) => `<option value="${i}">${esc(n)}</option>`).join('')}</select>
+  const seg = id2 => `<div class="seg mini" id="${id2}" style="width:auto"><button data-p="w" class="active">Εβδομάδα</button><button data-p="m">Μήνας</button></div>`;
+  view.innerHTML = `<h1>Ιστορικό</h1>
+    <div class="kpis"><div class="kpi accent"><b>${ent.filter(e => e.day.slice(0, 7) === thisM).length}</b><span>προπονήσεις αυτόν τον μήνα</span></div>
+      <div class="kpi"><b>${ent.filter(e => wk(e.day) === thisW).length}</b><span>αυτή την εβδομάδα</span></div></div>
+    <div class="card"><div class="row between nowrap"><b>Προπονήσεις</b>${seg('pT')}</div><div class="chart-box" style="height:170px;margin-top:10px"><canvas id="chT"></canvas></div></div>
+    ${acts.length > 1 ? `<div class="card"><div class="row between nowrap"><b>Ανά δραστηριότητα</b>${seg('pA')}</div><div class="chart-box" style="height:190px;margin-top:10px"><canvas id="chA"></canvas></div></div>` : ''}
+    ${exNames.length ? `<div class="card"><b>Κιλά ανά άσκηση</b><div class="ex-pills" id="exP">${exNames.map(([i, n], k) => `<button class="${k ? '' : 'active'}" data-ex="${i}">${esc(n)}</button>`).join('')}</div>
       <div class="chart-box" style="height:190px"><canvas id="chK"></canvas></div></div>` : ''}
-    <h2>Ιστορικό</h2>
-    ${ss.filter(s => s.workout_sets.length).length ? `<div class="card" style="padding:4px 14px">${ss.filter(s => s.workout_sets.length).map((s, i) => `
-      <div class="row nowrap" style="padding:10px 0;${i ? 'border-top:1px solid var(--line)' : ''}">${icon('check', 'sm')}
-        <div class="grow"><b>${fmtDateDay(s.performed_on)}</b></div>
-        <span class="small muted">${esc(s.program_days?.programs ? progTitle(s.program_days.programs) : '')}</span></div>`).join('')}</div>`
-      : '<div class="card empty">Καμία καταγραφή ακόμα</div>'}`;
+    <h2>Προπονήσεις</h2>
+    ${ent.length ? `<div class="card" style="padding:4px 14px">${ent.slice(0, 40).map((e, i) => `
+      <${e.sess ? `button data-sess="${e.sess.id}"` : 'div'} class="row nowrap hist-row" style="${i ? 'border-top:1px solid var(--line)' : ''}">
+        <span class="ses-dot" style="background:${esc(e.color)}"></span><div class="grow" style="min-width:0;text-align:left"><b>${fmtDateDay(e.day)}</b>
+        <div class="small muted">${esc(e.name)}${e.sess?.title ? ' · ' + esc(e.sess.title) : ''}</div></div>${e.sess ? icon('right', 'sm') : ''}</${e.sess ? 'button' : 'div'}>`).join('')}</div>`
+      : '<div class="card empty">Καμία προπόνηση ακόμα</div>'}`;
+
   const brand = getComputedStyle(document.documentElement).getPropertyValue('--brand').trim() || '#d71920';
-  st.charts.push(new Chart($('#chW'), { type: 'bar', data: { labels: weeks.map(w => fmtDate(w).slice(0, 5)),
-    datasets: [{ data: weeks.map(w => perW[w]), backgroundColor: brand, borderRadius: 6 }] },
-    options: { maintainAspectRatio: false, plugins: { legend: { display: false } },
-      scales: { x: { ticks: { maxTicksLimit: 6, maxRotation: 0 } }, y: { beginAtZero: true, ticks: { precision: 0 } } } } }));
-  if (!exNames.length) return;
-  let chK = null;
-  const drawK = ex => { if (chK) chK.destroy(); const xs = rows.filter(r => r.exercise_id === ex);
-    chK = new Chart($('#chK'), { type: 'line', data: { labels: xs.map(r => fmtDate(r.performed_on).slice(0, 5)),
-      datasets: [{ data: xs.map(r => +r.top_weight), borderColor: brand, backgroundColor: brand + '22', fill: true, tension: .3, pointRadius: 3 }] },
-      options: { maintainAspectRatio: false, plugins: { legend: { display: false } },
-        scales: { x: { ticks: { maxTicksLimit: 5, maxRotation: 0 } }, y: { ticks: { callback: v => v + ' κ.' } } } } });
-    st.charts.push(chK); };
-  $('#exSel').onchange = e => drawK(e.target.value); drawK(exNames[0][0]);
+  const opts = (stacked, legend) => ({ maintainAspectRatio: false, plugins: { legend: { display: legend, position: 'bottom', labels: { boxWidth: 10 } } },
+    scales: { x: { stacked, ticks: { maxTicksLimit: 6, maxRotation: 0 } }, y: { stacked, beginAtZero: true, ticks: { precision: 0 } } } });
+  const charts = {};
+  const mk = (key, cv, cfg) => { if (charts[key]) charts[key].destroy(); charts[key] = new Chart(cv, cfg); st.charts.push(charts[key]); };
+  const drawT = per => { const p = P[per], n = Object.fromEntries(p.keys.map(k => [k, 0])); ent.forEach(e => { const k = p.of(e); if (k in n) n[k]++; });
+    mk('T', $('#chT'), { type: 'bar', data: { labels: p.keys.map(p.lbl), datasets: [{ data: p.keys.map(k => n[k]), backgroundColor: brand, borderRadius: 6 }] }, options: opts(false, false) }); };
+  const drawA = per => { const p = P[per];
+    mk('A', $('#chA'), { type: 'bar', data: { labels: p.keys.map(p.lbl), datasets: acts.map(([ct, a]) => ({ label: a.name, backgroundColor: a.color, borderRadius: 4,
+      data: p.keys.map(k => ent.filter(e => (e.ct || '') === ct && p.of(e) === k).length) })) }, options: opts(true, true) }); };
+  const bindSeg = (sid, fn) => { const sg = $('#' + sid); if (!sg) return; $$('button', sg).forEach(b => b.onclick = () => {
+    $$('button', sg).forEach(x => x.classList.toggle('active', x === b)); fn(b.dataset.p); }); fn('w'); };
+  bindSeg('pT', drawT); if (acts.length > 1) bindSeg('pA', drawA);
+  if (exNames.length) {
+    const drawK = ex => { const xs = rows.filter(r => r.exercise_id === ex);
+      mk('K', $('#chK'), { type: 'line', data: { labels: xs.map(r => fmtDate(r.performed_on).slice(0, 5)),
+        datasets: [{ data: xs.map(r => +r.top_weight), borderColor: brand, backgroundColor: brand + '22', fill: true, tension: .3, pointRadius: 3 }] },
+        options: { maintainAspectRatio: false, plugins: { legend: { display: false } },
+          scales: { x: { ticks: { maxTicksLimit: 5, maxRotation: 0 } }, y: { ticks: { callback: v => v + ' κ.' } } } } }); };
+    $$('#exP button').forEach(b => b.onclick = () => { $$('#exP button').forEach(x => x.classList.toggle('active', x === b)); drawK(b.dataset.ex); });
+    drawK(exNames[0][0]);
+  }
+  // Πάτημα σε προπόνηση: ασκήσεις και σετ
+  $$('[data-sess]', view).forEach(b => b.onclick = async () => {
+    const w = await q(sb.from('workout_sets').select('set_no, reps, weight, seconds, exercise_id, exercises(name)').eq('session_id', b.dataset.sess).order('set_no'));
+    const e = ent.find(x => x.sess?.id === b.dataset.sess);
+    const by = groupBy(w, x => x.exercises?.name || '');
+    const vol = w.reduce((a, x) => a + (x.weight || 0) * (x.reps || 0), 0);
+    sheet(fmtDateDay(e.day), `<p class="small muted" style="margin-top:0">${esc(e.name)}${e.sess.title ? ' · ' + esc(e.sess.title) : ''} · ${w.length} σετ${vol ? ' · ' + Math.round(vol).toLocaleString('el-GR') + ' κ. συνολικά' : ''}</p>
+      <div class="card" style="padding:4px 14px;margin:0">${[...by].map(([n, ys], i) => `<div style="padding:10px 0;${i ? 'border-top:1px solid var(--line)' : ''}"><b>${esc(n)}</b>
+        <div class="set-line">${ys.map(x => `<span>${x.seconds ? dur(x.seconds) : (x.weight ? fmtNum(x.weight) + ' κ. × ' : '') + (x.reps ?? '')}</span>`).join('')}</div></div>`).join('')}</div>
+      <button class="btn block secondary" data-close style="margin-top:12px">Κλείσιμο</button>`);
+  });
 };
+
 routes.progressFull = async view => {
   view.innerHTML = '<h1>Η πρόοδός μου</h1><div class="seg" id="seg"><button data-t="p" class="active">Πρόοδος</button><button data-t="s">Επόμενη προπόνηση</button></div><div id="c"></div>';
   const draw = async t => { destroyCharts(); const c = $('#c');
@@ -1908,9 +1971,8 @@ routes.checkin = async (view, arg) => {
       if (r) { b.classList.add('on'); maybeDropin(r, cur.class_type_id); }
     });
     $('#addB').onclick = () => pickMember('Ήρθε χωρίς κράτηση', async m => {
-      try { const r = await q(sb.rpc('book_session', { p_session: selSession, p_member: m.id }));
-        if (r.status === 'waitlist') toast('Το τμήμα είναι γεμάτο: μπήκε σε λίστα αναμονής');
-        else { const x = await markPresent(m.id, 'class', cur.class_type_id); if (x) maybeDropin(x, cur.class_type_id); }
+      try { await q(sb.rpc('book_session', { p_session: selSession, p_member: m.id }));
+        { const x = await markPresent(m.id, 'class', cur.class_type_id); if (x) maybeDropin(x, cur.class_type_id); }
         drawClass(); } catch {} });
   }
   function pickMember(title, onPick) {
@@ -2093,7 +2155,7 @@ async function sessionSheet(x, after) {
         `<button class="card tap list-item" data-add="${m.id}" style="width:100%;text-align:left;margin:8px 0 0;padding:8px">${avatar(m.full_name)}<b class="grow">${esc(m.full_name)}</b>${icon('plus', 'sm')}</button>`).join('');
       $$('[data-add]', el).forEach(b => b.onclick = async () => {
         try { const r = await q(sb.rpc('book_session', { p_session: x.session_id, p_member: b.dataset.add }));
-          toast(r.status === 'waitlist' ? 'Λίστα αναμονής' : 'Προστέθηκε'); close(); after(); } catch {} }); };
+          toast('Προστέθηκε'); close(); after(); } catch {} }); };
     $('#cs', el).onclick = () => confirmSheet(x.cancelled ? 'Επαναφορά' : 'Ακύρωση τμήματος',
       x.cancelled ? 'Το τμήμα θα ξαναγίνει διαθέσιμο για κρατήσεις.' : 'Οι αθλητές δεν θα μπορούν να κάνουν κράτηση σε αυτή την ώρα.', x.cancelled ? 'Επαναφορά' : 'Ακύρωση τμήματος',
       async () => { await q(sb.from('class_sessions').update({ cancelled: !x.cancelled }).eq('id', x.session_id)); close(); after(); }, !x.cancelled);
@@ -2170,39 +2232,35 @@ routes.book = async view => {
   const g = st.cur.gym_id, gy = await q(sb.from('gyms').select('book_ahead_days, cancel_hours').eq('id', g).single());
   const ahead = Math.min(28, gy?.book_ahead_days || 14);
   let sel = todayISO(), ss = [];
-  view.innerHTML = `<h1>Κρατήσεις ${help('book')}</h1><div id="mine"></div><div id="strip"></div><div id="list"></div>
-    <p class="tiny muted center">Ακύρωση έως ${gy?.cancel_hours ?? 2} ώρες πριν. Αν γεμίσει, μπαίνετε σε λίστα αναμονής και κλείνεται αυτόματα θέση όταν ελευθερωθεί.</p>`;
+  view.innerHTML = `<h1>Κλείσε ραντεβού ${help('book')}</h1><div id="mine"></div><div id="strip"></div><div id="list"></div>
+    <p class="tiny muted center">Ακύρωση έως ${gy?.cancel_hours ?? 2} ώρες πριν.</p>`;
   const load = async () => { ss = await q(sb.rpc('sessions_for', { p_gym: g, p_from: todayISO(), p_to: addDays(todayISO(), ahead) })); draw(); };
   const act = async (fn, args, msg) => { try { const r = await q(sb.rpc(fn, args)); toast(msg(r)); await load(); } catch {} };
+  const mine = x => ['booked', 'attended'].includes(x.my_status);
   const draw = () => {
-    const now = Date.now(), up = ss.filter(x => x.my_status && ['booked', 'waitlist'].includes(x.my_status) && new Date(x.ends_at).getTime() > now);
-    $('#mine').innerHTML = up.length ? `<h2>Οι κρατήσεις μου</h2><div class="card" style="padding:4px 14px">${up.map((x, i) => `
+    const now = Date.now(), up = ss.filter(x => x.my_status === 'booked' && new Date(x.ends_at).getTime() > now);
+    $('#mine').innerHTML = up.length ? `<h2>Τα ραντεβού μου</h2><div class="card" style="padding:4px 14px">${up.map((x, i) => `
       <div class="row nowrap" style="padding:10px 0;${i ? 'border-top:1px solid var(--line)' : ''}"><span class="ses-dot" style="background:${esc(x.color)}"></span>
         <div class="grow"><b>${esc(x.name)}</b><div class="small muted">${fmtDateDay(athDay(x.starts_at))} · ${hhmm(x.starts_at)}</div></div>
-        ${x.my_status === 'waitlist' ? '<span class="badge b-warn">αναμονή</span>' : '<span class="badge b-ok">κλεισμένο</span>'}
         <button class="btn secondary small" data-cancel="${x.my_booking}">Ακύρωση</button></div>`).join('')}</div>` : '';
     const days = Array.from({ length: ahead + 1 }, (_, i) => addDays(todayISO(), i)), counts = {};
-    ss.forEach(x => { if (!x.cancelled && new Date(x.starts_at).getTime() > now) { const d = athDay(x.starts_at); counts[d] = (counts[d] || 0) + 1; } });
-    $('#strip').innerHTML = `<h2>Διαθέσιμες ώρες</h2>` + dayStrip(days, sel, counts);
-    const xs = ss.filter(x => athDay(x.starts_at) === sel && !x.cancelled && new Date(x.starts_at).getTime() > now);
-    const groups = xs.filter(x => x.kind === 'group'), pers = groupBy(xs.filter(x => x.kind === 'personal'), x => x.class_type_id);
-    const btn = x => x.my_status === 'booked' || x.my_status === 'attended' ? `<button class="btn secondary small" data-cancel="${x.my_booking}">${icon('check', 'sm')}Κλεισμένο</button>`
-      : x.my_status === 'waitlist' ? `<button class="btn secondary small" data-cancel="${x.my_booking}">Αναμονή · Ακύρωση</button>`
-      : x.booked >= x.capacity ? `<button class="btn ghost small" data-book="${x.session_id}">Λίστα αναμονής</button>`
+    const visible = x => !x.cancelled && new Date(x.starts_at).getTime() > now && (x.kind !== 'personal' || mine(x) || x.booked < x.capacity);
+    ss.forEach(x => { if (visible(x)) { const d = athDay(x.starts_at); counts[d] = (counts[d] || 0) + 1; } });
+    $('#strip').innerHTML = `<h2>Ελεύθερες ώρες</h2>` + dayStrip(days, sel, counts);
+    // Όλες οι δραστηριότητες σε μία λίστα. Personal = ώρα με μία θέση (οι πιασμένες δεν φαίνονται)
+    const xs = ss.filter(x => athDay(x.starts_at) === sel && visible(x)).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+    const free = x => x.capacity - x.booked;
+    const sub = x => x.kind === 'personal' ? (mine(x) ? 'δικό σου' : 'ελεύθερο') : (free(x) <= 0 ? 'πλήρες' : free(x) + (free(x) === 1 ? ' ελεύθερη θέση' : ' ελεύθερες θέσεις'));
+    const btn = x => mine(x) ? `<button class="btn secondary small" data-cancel="${x.my_booking}">${icon('check', 'sm')}Κλεισμένο</button>`
+      : free(x) <= 0 ? `<button class="btn ghost small" disabled>Πλήρες</button>`
       : `<button class="btn small" data-book="${x.session_id}">Κράτηση</button>`;
-    $('#list').innerHTML = (groups.length ? `<div class="card" style="padding:4px 14px">${groups.map((x, i) => `
+    $('#list').innerHTML = xs.length ? `<div class="card" style="padding:4px 14px">${xs.map((x, i) => `
         <div class="row nowrap" style="padding:12px 0;${i ? 'border-top:1px solid var(--line)' : ''}"><span class="ses-time">${hhmm(x.starts_at)}</span>
-          <span class="ses-dot" style="background:${esc(x.color)}"></span><div class="grow"><b>${esc(x.name)}</b>
-          <div class="small muted">${x.coach_name ? esc(x.coach_name) + ' · ' : ''}${x.booked >= x.capacity ? 'πλήρες' : (x.capacity - x.booked) + ' ελεύθερες θέσεις'}</div></div>${btn(x)}</div>`).join('')}</div>` : '')
-      + [...pers].map(([, ps]) => { const free = ps.filter(x => x.my_status || x.booked < x.capacity);
-        return free.length ? `<div class="card"><div class="row nowrap"><span class="ses-dot" style="background:${esc(ps[0].color)}"></span><b>${esc(ps[0].name)}</b>
-          <span class="small muted">${ps[0].coach_name ? '· ' + esc(ps[0].coach_name) : ''}</span></div>
-          <div class="slotgrid" style="margin-top:10px">${free.map(x => x.my_status ? `<button class="slot mine" data-cancel="${x.my_booking}"><b>${hhmm(x.starts_at)}</b><span>δικό σας · ακύρωση</span></button>`
-            : `<button class="slot" data-book="${x.session_id}"><b>${hhmm(x.starts_at)}</b><span>ελεύθερο</span></button>`).join('')}</div></div>` : ''; }).join('')
-      || `<div class="card empty">${icon('cal')}<p>Δεν υπάρχουν διαθέσιμες ώρες αυτή την ημέρα.</p></div>`;
+          <span class="ses-dot" style="background:${esc(x.color)}"></span><div class="grow" style="min-width:0"><b>${esc(x.name)}</b>
+          <div class="small muted">${x.coach_name ? esc(x.coach_name) + ' · ' : ''}${sub(x)}</div></div>${btn(x)}</div>`).join('')}</div>`
+      : `<div class="card empty">${icon('cal')}<p>Δεν υπάρχουν ελεύθερες ώρες αυτή την ημέρα.</p></div>`;
     $$('#strip [data-day]').forEach(b => b.onclick = () => { sel = b.dataset.day; draw(); });
-    $$('[data-book]', view).forEach(b => b.onclick = () => act('book_session', { p_session: b.dataset.book },
-      r => r.status === 'waitlist' ? 'Μπήκατε σε λίστα αναμονής' : 'Η θέση σας κλείστηκε ✓'));
+    $$('[data-book]', view).forEach(b => b.onclick = () => act('book_session', { p_session: b.dataset.book }, () => 'Η θέση σας κλείστηκε ✓'));
     $$('[data-cancel]', view).forEach(b => b.onclick = () => confirmSheet('Ακύρωση κράτησης', 'Να ακυρωθεί η κράτηση;', 'Ακύρωση κράτησης',
       () => act('cancel_booking', { p_booking: b.dataset.cancel }, () => 'Η κράτηση ακυρώθηκε'), true));
   };
