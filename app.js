@@ -1708,9 +1708,12 @@ routes.me = async view => {
   const now = Date.now(), up = ss.filter(x => x.my_status === 'booked' && new Date(x.ends_at).getTime() > now)
     .sort((a, b) => a.starts_at.localeCompare(b.starts_at));
   const { cur, valid } = memState(ms);
+  const pays = await q(sb.from('payments').select('amount').eq('member_id', id));
+  const bal = ms.filter(m => m.status !== 'cancelled').reduce((a, m) => a + +m.price, 0) - pays.reduce((a, x) => a + +x.amount, 0);
+  const debt = bal > 0.009 ? ` <span class="badge b-bad">υπόλοιπο ${money(bal)}</span>` : '';
   const first = (st.cur.full_name || '').split(/\s+/)[0];
-  const sub = !cur ? '' : !valid ? `<a class="card row nowrap tap" href="#/card" style="text-decoration:none;color:inherit"><span class="badge ${SUB.expired[0]}">${cur.status === 'frozen' ? 'Σε πάγωμα' : 'Η συνδρομή έληξε'}</span><span class="grow small muted">Επικοινώνησε με το γυμναστήριο</span>${icon('right', 'sm')}</a>`
-    : `<a class="card row nowrap tap" href="#/card" style="text-decoration:none;color:inherit">${icon('wallet', 'sm')}<span class="grow small">${esc(cur.plan_name)} · ${cur.kind === 'visits' ? `${cur.visits_total - cur.visits_used} επισκέψεις` : cur.end_date ? 'έως ' + fmtDate(cur.end_date) : ''}</span>${icon('right', 'sm')}</a>`;
+  const sub = !cur ? '' : !valid ? `<a class="card row nowrap tap" href="#/card" style="text-decoration:none;color:inherit"><span class="badge ${SUB.expired[0]}">${cur.status === 'frozen' ? 'Σε πάγωμα' : 'Η συνδρομή έληξε'}</span><span class="grow small muted">Επικοινώνησε με το γυμναστήριο</span>${debt}${icon('right', 'sm')}</a>`
+    : `<a class="card row nowrap tap" href="#/card" style="text-decoration:none;color:inherit">${icon('wallet', 'sm')}<span class="grow small">${esc(cur.plan_name)} · ${cur.kind === 'visits' ? `${cur.visits_total - cur.visits_used} επισκέψεις` : cur.end_date ? 'έως ' + fmtDate(cur.end_date) : ''}</span>${debt}${icon('right', 'sm')}</a>`;
   view.innerHTML = `<h1>Γεια σου${first ? ' ' + esc(first) : ''}!</h1>
     <div class="home-big">
       <a class="big-tile primary" href="#/today">${icon('play')}<b>Έναρξη προπόνησης</b><span>${pr ? `${pr.activity ? esc(pr.activity) + ' · ' : ''}Πρόγραμμα ${pr.seq || ''} · ${Math.min((pr.done || 0) + 1, pr.total || 0)} από ${pr.total || ''}` : 'Ξεκίνα την προπόνησή σου'}</span></a>
@@ -2566,7 +2569,10 @@ routes.card = async view => {
         ${cur.end_date ? `<div class="small">Ισχύει ${fmtDate(cur.start_date)} – <b>${fmtDate(cur.end_date)}</b>${left != null && left >= 0 ? ` · απομένουν ${left} ημέρες` : ''}</div>` : ''}
         ${cur.status === 'frozen' ? `<p class="small">Σε πάγωμα από ${fmtDate(cur.frozen_from)}. Η λήξη θα μετατεθεί.</p>` : ''}`
       : '<p class="muted">Δεν υπάρχει συνδρομή. Επικοινωνήστε με το γυμναστήριο.</p>'}
-      ${bal > 0.009 ? `<p style="margin:10px 0 0"><span class="badge b-bad">Υπόλοιπο προς εξόφληση ${money(bal)}</span></p>` : ''}</div>
+      </div>
+    ${bal > 0.009 ? `<div class="card row between nowrap" style="border-color:var(--b-bad);background:var(--bad-soft)">
+      <div><b>Υπόλοιπο προς εξόφληση</b><div class="small muted">Εξοφλείται στο γυμναστήριο</div></div>
+      <span style="font-size:26px;font-weight:800;color:var(--bad)">${money(bal)}</span></div>` : ''}
     ${ps.length ? `<h2>Πληρωμές</h2><div class="card" style="padding:4px 14px">${ps.map((p, i) => `<div class="row nowrap" style="padding:10px 0;${i ? 'border-top:1px solid var(--line)' : ''}">
       <div class="grow">${fmtDate(p.paid_on)}<div class="small muted">${METHOD[p.method]}</div></div><b>${money(p.amount)}</b></div>`).join('')}</div>` : ''}`;
 };
